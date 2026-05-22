@@ -1,0 +1,20 @@
+# Core ML / inference
+# Install torch with the CUDA build that matches your system. Example:
+#   pip install torch --index-url https://download.pytorch.org/whl/cu121
+torch
+ultralytics            # YOLOv11 detector
+
+# Numerics + tabular IO
+numpy
+pandas
+pyarrow                # parquet writer/reader
+
+# Image / video IO
+pillow
+opencv-python
+imageio
+imageio-ffmpeg         # used by file2mp4.py (needs ffmpeg binaries; bundled)
+
+# Config + progress
+pyyaml
+tqdm

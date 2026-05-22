@@ -19,10 +19,10 @@ tracking_only/
 ## 1. Install
 
 ```bash
-pip install torch ultralytics numpy pandas pyarrow opencv-python pyyaml tqdm pillow imageio imageio-ffmpeg
+pip install -r requirements.txt
 ```
 
-A CUDA-capable GPU is strongly recommended.
+For GPU acceleration, install the torch wheel that matches your CUDA version (see the comment in `requirements.txt`). A CUDA-capable GPU is strongly recommended.
 
 ## 2. Download checkpoints
 
