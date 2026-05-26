@@ -136,10 +136,11 @@ class EfficientTAMTracker:
                 yield int(f), [int(x) for x in ids], logits
 
 
-    def track_window(self, frame_idx: int, boxes_xyxy: np.ndarray, w: int):
+    def track_window(self, frame_idx: int, boxes_xyxy: np.ndarray, w: int, memory_update_skip: int = 1):
         # Propagate w-1 frames backward and w-1 frames forward for each box.
         # Used by the bidirectional Stage 2 "propagate" variant (paper).
         # Returns: {tmp_id -> {frame -> (ys, xs)}}
+        # RESEARCH: memory_update_skip controls memory update frequency (1=every frame, 3=every 3rd frame)
         self.reset()
         out = {}
 
@@ -162,14 +163,16 @@ class EfficientTAMTracker:
 
         # backward
         for f, ids, logits in self.propagate(start_frame_idx=frame_idx,
-                                            max_frame_num_to_track=w-1, reverse=True):
+                                            max_frame_num_to_track=w-1, reverse=True,
+                                            memory_update_skip=memory_update_skip):
             for k, oid in enumerate(ids):
                 m = (logits[k] > 0).detach().cpu().numpy().squeeze().astype(bool)
                 out[oid][int(f)] = np.nonzero(m)
 
         # forward
         for f, ids, logits in self.propagate(start_frame_idx=frame_idx,
-                                            max_frame_num_to_track=w-1, reverse=False):
+                                            max_frame_num_to_track=w-1, reverse=False,
+                                            memory_update_skip=memory_update_skip):
             for k, oid in enumerate(ids):
                 m = (logits[k] > 0).detach().cpu().numpy().squeeze().astype(bool)
                 out[oid][int(f)] = np.nonzero(m)

@@ -1,64 +1,49 @@
-# Detect + segment + track + count droplets. Paths relative to repo root.
-
 data:
-  video_dir: "/home/lucas_ccwj/projects/Software_v0.1/ALS28T3"   # frames folder
-  output_root: "./outputs"
-
-# Stage 1 detector. Boxes become bbox prompts for EfficientTAM.
-yolo:
-  weights: "./yolov11x/best.pt"
-  conf: 0.15
-  iou: 0.30
-  classes:
-    track: [1]           # droplets — full tracking
-    segment_only: [0]    # weld pool — per-frame mask only
-
+  output_root: ./outputs
+  video_dir: C:\Users\krish\Desktop\etam-memory-bank-gmaw\test_frames
 efficienttam:
-  cfg: "configs/efficienttam/efficienttam_s.yaml"
-  ckpt: "efficient_track_anything/checkpoints/efficienttam_s.pt"
-
-# Stage 2: temporal filter.
-stage2:
-  window: 2              # paper w
-  mode: "forward_iou"    # or "propagate" (bidirectional)
-  match_iou: 0.05
-
-# Stage 3: long-term tracking + discovery.
-stage3:
-  overlap_thr: 0.10
-  min_px: 2              # extra; 0 = off
-  max_skip: 0
-  kill_after_gap: 6      # extra; 0 = off
-
+  cfg: configs/efficienttam/efficienttam_s.yaml
+  ckpt: efficient_track_anything/checkpoints/efficienttam_s.pt
+output:
+  fps: 30
+  make_mp4: true
+  render_overlays: true
+parallel:
+  frames_per_part: 1000
+  gpus: auto
+  max_workers_per_gpu: 1
+  overlap: 3
+  strategy: fixed_len
+postprocess:
+  bottom_min_net_drop_px: 8.0
+  bottom_stuck_filter: true
+  bottom_y_frac: 0.9
+  enabled: true
+  fall_min_drop_per_frame_px: 0.2
+  fall_min_net_drop_px: 20.0
+  falling_filter: true
+  min_len_frames: 6
+  reindex_ids: true
+  yoyo_trim: true
 run:
+  device: auto
   downsample: 1
   save_overlays: true
-  device: "auto"         # auto | cuda | cpu
-
-# Multi-GPU chunked scheduler.
-parallel:
-  gpus: "auto"
-  max_workers_per_gpu: 1
-  overlap: 3             # shared frames for ID stitching
-  strategy: "fixed_len"  # fixed_len | per_gpu
-  frames_per_part: 1000
-
-# ---------------- optional extras (not in paper) ----------------
-# Paper-strict: postprocess.enabled=false, render_overlays=false, make_mp4=false.
-
-postprocess:
-  enabled: true               # master switch
-  min_len_frames: 6           # 0 = off
-  yoyo_trim: true
-  falling_filter: true
-  bottom_stuck_filter: true
-  reindex_ids: true           # cosmetic
-  fall_min_net_drop_px: 20.0
-  fall_min_drop_per_frame_px: 0.2
-  bottom_y_frac: 0.90
-  bottom_min_net_drop_px: 8.0
-
-output:
-  render_overlays: true
-  make_mp4: true
-  fps: 30
+stage2:
+  match_iou: 0.05
+  mode: forward_iou
+  window: 2
+stage3:
+  kill_after_gap: 6
+  max_skip: 0
+  min_px: 2
+  overlap_thr: 0.1
+yolo:
+  classes:
+    segment_only:
+    - 0
+    track:
+    - 1
+  conf: 0.15
+  iou: 0.3
+  weights: ./yolov11x/best.pt

@@ -1,0 +1,54 @@
+# TEST CONFIG: Memory bank optimization for fast iteration
+# Uses minimal 50-frame test set (no actual detector/segmenter weights needed for structure)
+
+data:
+  video_dir: "./test_frames"                 # 50 synthetic test frames
+  output_root: "./test_outputs"
+
+# Stage 1 detector. Boxes become bbox prompts for EfficientTAM.
+yolo:
+  weights: "./yolov11x/best.pt"              # (will fail if not present, but tests pipeline flow)
+  conf: 0.15
+  iou: 0.30
+  classes:
+    track: [1]
+    segment_only: [0]
+
+efficienttam:
+  cfg: "configs/efficienttam/efficienttam_s.yaml"
+  ckpt: "efficient_track_anything/checkpoints/efficienttam_s.pt"
+
+# Stage 2: temporal filter
+stage2:
+  window: 2
+  mode: "forward_iou"  # lightweight, doesn't need EfficientTAM
+  match_iou: 0.05
+
+# Stage 3: long-term tracking
+stage3:
+  overlap_thr: 0.10
+  min_px: 2
+  max_skip: 0
+  kill_after_gap: 6
+
+run:
+  downsample: 1
+  save_overlays: false               # skip overlay rendering for test speed
+  device: "cpu"                      # use CPU for reproducibility
+
+# Multi-GPU (disabled for testing)
+parallel:
+  gpus: null
+  max_workers_per_gpu: 1
+  overlap: 3
+  strategy: null                     # disabled; run sequential
+  frames_per_part: 1000
+
+# Post-processing (minimal)
+postprocess:
+  enabled: false                     # skip for test
+
+output:
+  render_overlays: false             # skip rendering
+  make_mp4: false                    # skip MP4 encoding
+  fps: 30

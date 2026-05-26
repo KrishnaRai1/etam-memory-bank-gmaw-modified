@@ -559,6 +559,7 @@ class EfficientTAMVideoPredictor(EfficientTAMBase):
         max_frame_num_to_track=None,
         reverse=False,
         show_progress: bool = False,   # <--- NEW, default ON
+        memory_update_skip: int = 1,   # <--- RESEARCH MOD: skip memory update every N frames (1=no skip)
     ):
         """
         Propagate the input points across frames to track in the entire video.
@@ -569,6 +570,11 @@ class EfficientTAMVideoPredictor(EfficientTAMBase):
         Progress bar control (this function arg):
         show_progress=True  -> show tqdm (default)
         show_progress=False -> hide tqdm
+
+        Memory update control (RESEARCH):
+        memory_update_skip=1 (default): update memory every frame
+        memory_update_skip=3: update memory every 3rd frame (reduces redundant storage)
+        memory_update_skip=5: update memory every 5th frame (max efficiency, may lose detail)
 
         Early-stop override (optional, via inference_state):
         inference_state["early_stop_cfg"] = {
@@ -634,6 +640,11 @@ class EfficientTAMVideoPredictor(EfficientTAMBase):
                         )
                 else:
                     storage_key = "non_cond_frame_outputs"
+                    # RESEARCH MOD: skip memory encoding on frames that aren't multiples of memory_update_skip
+                    # frame_idx relative to start_frame_idx for consistent skipping
+                    frame_offset = abs(frame_idx - start_frame_idx) if not reverse else abs(start_frame_idx - frame_idx)
+                    should_update_memory = (frame_offset % memory_update_skip) == 0
+                    
                     current_out, pred_masks = self._run_single_frame_inference(
                         inference_state=inference_state,
                         output_dict=obj_output_dict,
@@ -643,7 +654,7 @@ class EfficientTAMVideoPredictor(EfficientTAMBase):
                         point_inputs=None,
                         mask_inputs=None,
                         reverse=reverse,
-                        run_mem_encoder=True,
+                        run_mem_encoder=should_update_memory,  # Skip memory encoding for intermediate frames
                     )
                     obj_output_dict[storage_key][frame_idx] = current_out
 
