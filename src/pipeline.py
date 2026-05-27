@@ -473,12 +473,21 @@ def stage3_track_and_discover(
 
     def _consume_propagate(start_frame_local: int):
         prop_perf["propagation_calls"] += 1
+        memory_update_skip = cfg.get("stage2", {}).get(
+            "memory_update_skip",
+            1
+        )
+        print("\n========== MEMORY CONFIG DEBUG ==========")
+        print(f"memory_update_skip = {memory_update_skip}")
+        print("=========================================\n")
+
         for f_abs, ids, logits in etam.propagate(
             perf_stats=prop_perf,
             start_frame_idx=offset + start_frame_local,
             max_frame_num_to_track=(N - 1 - start_frame_local),
             reverse=False,
             show_progress=progress,
+            memory_update_skip=memory_update_skip,
         ):
             f_abs = int(f_abs)
             f_loc = f_abs - offset
