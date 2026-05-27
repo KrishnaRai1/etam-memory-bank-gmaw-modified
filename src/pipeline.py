@@ -428,23 +428,38 @@ def stage3_track_and_discover(
     offset: int = 0,
 ):
     batch_sz = int(cfg["yolo"].get("batch_init", 999999))
+
     cfg_stage3 = cfg.get("stage3", {})
+
     min_px = int(cfg_stage3.get("min_px", 0))
     kill_gap = int(cfg_stage3.get("kill_after_gap", 0))
     overlap_thr = float(cfg_stage3.get("overlap_thr", 0.0))
     max_skip = int(cfg_stage3.get("max_skip", 0))
+
     profiling = bool(cfg_stage3.get("enable_profiling", True))
     progress = bool(cfg_stage3.get("progress", True))
     reuse_outputs = bool(cfg_stage3.get("reuse_existing_outputs", True))
-    
+
+    memory_update_skip = cfg.get("stage2", {}).get(
+        "memory_update_skip",
+        1
+    )
+
+    print("\n========== MEMORY CONFIG DEBUG ==========")
+    print(f"memory_update_skip = {memory_update_skip}")
+    print("=========================================\n")
+
     log_dir = Path(cfg_stage3.get("experiment_log_dir", "experiment_logs"))
+
     if cfg.get("data", {}).get("output_root"):
         log_dir = Path(cfg["data"]["output_root"]) / log_dir
 
     T: Dict[int, Dict[int, MaskCoords]] = {}
+
     N = len(frame_names)
 
     i0 = 0
+
     for j in range(N):
         if boxes_by_f.get(j) is not None and len(boxes_by_f[j]) > 0:
             i0 = j
@@ -454,9 +469,13 @@ def stage3_track_and_discover(
 
     def _register_oids(oids, f_seed_local):
         for oid in oids:
-            alive[oid] = {"start": int(f_seed_local), "gap": 0, "dead": False}
+            alive[oid] = {
+                "start": int(f_seed_local),
+                "gap": 0,
+                "dead": False,
+            }
 
-    prop_perf: dict = {
+    prop_perf = {
         "propagation_calls": 0,
         "propagated_frames": 0,
         "computed_frames": 0,
@@ -464,7 +483,8 @@ def stage3_track_and_discover(
         "cache_misses": 0,
         "objects_processed": 0,
     }
-    discovery_stats: dict = {
+
+    discovery_stats = {
         "candidate_frames": 0,
         "candidates_seen": 0,
         "new_seeds": 0,
@@ -472,14 +492,8 @@ def stage3_track_and_discover(
     }
 
     def _consume_propagate(start_frame_local: int):
+
         prop_perf["propagation_calls"] += 1
-        memory_update_skip = cfg.get("stage2", {}).get(
-            "memory_update_skip",
-            1
-        )
-        print("\n========== MEMORY CONFIG DEBUG ==========")
-        print(f"memory_update_skip = {memory_update_skip}")
-        print("=========================================\n")
 
         for f_abs, ids, logits in etam.propagate(
             perf_stats=prop_perf,
@@ -489,87 +503,178 @@ def stage3_track_and_discover(
             show_progress=progress,
             memory_update_skip=memory_update_skip,
         ):
+
             f_abs = int(f_abs)
+
             f_loc = f_abs - offset
+
             if f_loc < 0 or f_loc >= N:
                 continue
+
+            prop_perf["propagated_frames"] += 1
+
             for k, oid in enumerate(ids):
+
                 oid = int(oid)
+
                 info = alive.get(oid, None)
+
                 if (info is None) or info["dead"]:
                     continue
 
-                m = (logits[k] > 0).detach().cpu().numpy().squeeze().astype(bool)
+                m = (
+                    (logits[k] > 0)
+                    .detach()
+                    .cpu()
+                    .numpy()
+                    .squeeze()
+                    .astype(bool)
+                )
+
                 area_px = int(m.sum())
 
                 if area_px < min_px:
+
                     info["gap"] = int(info["gap"]) + 1
+
                     if kill_gap and info["gap"] >= kill_gap:
                         info["dead"] = True
+
                     continue
 
                 info["gap"] = 0
+
                 coords = np.nonzero(m)
+
                 if oid not in T:
                     T[oid] = {}
+
                 T[oid][f_loc] = coords
 
     t0 = time.time()
+
     first_batch = True
     has_state = False
 
     boxes0 = boxes_by_f.get(i0, np.zeros((0, 4), dtype=np.float32))
+
     oid_base = 0
+
+    print("\n[Stage3] Starting track-and-discover\n")
+
     if len(boxes0) > 0:
-        for start in range(0, len(boxes0), batch_sz):
+
+        for start in tqdm(
+            range(0, len(boxes0), batch_sz),
+            desc="[Stage3] initial seeds",
+            disable=not progress,
+        ):
+
             if not has_state or not reuse_outputs:
                 etam.reset()
                 has_state = True
+
             sl = slice(start, min(start + batch_sz, len(boxes0)))
+
             seeded_oids = []
+
             for j, b in enumerate(boxes0[sl], start=1):
+
                 oid = oid_base + j
+
                 etam.seed_box(offset + i0, oid, b)
+
                 seeded_oids.append(oid)
+
             _register_oids(seeded_oids, i0)
+
             _consume_propagate(i0)
+
             oid_base = max(oid_base, max(seeded_oids))
+
         oid_base = max(T.keys()) if T else 0
 
-    for i in tqdm(range(i0, N - 1), desc="[Stage3] discovery", disable=not progress):
+    for i in tqdm(
+        range(i0, N - 1),
+        desc="[Stage3] discovery",
+        disable=not progress,
+    ):
+
         f_next = i + 1
+
         if max_skip and ((i - i0) % (max_skip + 1) != 0):
+
             discovery_stats["frames_skipped_by_max_skip"] += 1
+
             continue
 
         discovery_stats["candidate_frames"] += 1
+
         new_boxes = _get_new_boxes_in_frame(
-            f_next, indep_masks, T, H, W, min_px, overlap_thr=overlap_thr,
+            f_next,
+            indep_masks,
+            T,
+            H,
+            W,
+            min_px,
+            overlap_thr=overlap_thr,
         )
+
         discovery_stats["candidates_seen"] += len(new_boxes)
+
         if not new_boxes:
             continue
 
+        print(
+            f"[Stage3] Frame {f_next}: "
+            f"discovered {len(new_boxes)} new candidates"
+        )
+
         for start in range(0, len(new_boxes), batch_sz):
+
             if not has_state or not reuse_outputs:
                 etam.reset()
                 has_state = True
+
             sl = slice(start, min(start + batch_sz, len(new_boxes)))
+
             seeded_oids = []
+
             for j, b in enumerate(new_boxes[sl], start=1):
+
                 oid = oid_base + j
+
                 etam.seed_box(offset + f_next, oid, b)
+
                 seeded_oids.append(oid)
+
             _register_oids(seeded_oids, f_next)
+
             discovery_stats["new_seeds"] += len(seeded_oids)
+
             _consume_propagate(f_next)
+
             oid_base += (sl.stop - sl.start)
 
     t3 = time.time() - t0
 
+    print("\n========== STAGE3 PROFILE ==========")
+
+    print(f"Propagation calls : {prop_perf['propagation_calls']}")
+    print(f"Propagated frames : {prop_perf['propagated_frames']}")
+    print(f"Computed frames   : {prop_perf['computed_frames']}")
+    print(f"Cache hits        : {prop_perf['cache_hits']}")
+    print(f"Cache misses      : {prop_perf['cache_misses']}")
+    print(f"Objects processed : {prop_perf['objects_processed']}")
+    print(f"New seeds         : {discovery_stats['new_seeds']}")
+
+    print("====================================\n")
+
     if profiling:
+
         perf_dict = {
             "stage3_runtime": t3,
+            "memory_update_skip": memory_update_skip,
             "stage3_candidates_frames": discovery_stats["candidate_frames"],
             "stage3_candidates_seen": discovery_stats["candidates_seen"],
             "stage3_new_seeds": discovery_stats["new_seeds"],
@@ -581,20 +686,13 @@ def stage3_track_and_discover(
             "stage3_cache_misses": prop_perf["cache_misses"],
             "stage3_objects_processed": prop_perf["objects_processed"],
             "gpu": _get_gpu_memory_info(),
-            "config": {
-                "min_px": min_px,
-                "kill_gap": kill_gap,
-                "overlap_thr": overlap_thr,
-                "max_skip": max_skip,
-                "batch_sz": batch_sz,
-                "reuse_outputs": reuse_outputs,
-            },
             "frame_count": N,
             "object_count": len(T),
         }
+
         _save_experiment_log(log_dir, perf_dict)
 
-    return T, t3
+    return T, t3, prop_perf, discovery_stats
 
 
 # ----------------------------
@@ -698,7 +796,7 @@ def run_pipeline(
     else:
         boxes_filt, masks_filt, t2 = stage2_temporal_filter(cfg, etam, boxes_by_f, indep_masks, H, W)
 
-    T, t3 = stage3_track_and_discover(cfg, etam, frame_names, boxes_filt, masks_filt, H, W, offset=offset)
+    T, t3, prop_perf, discovery_stats = stage3_track_and_discover(cfg, etam, frame_names, boxes_filt, masks_filt, H, W, offset=offset)
 
     # BENCHMARK FRAMEWORK: Inject benchmark metadata if present in config
     benchmark_meta = cfg.get("benchmark_meta", {})
@@ -709,6 +807,27 @@ def run_pipeline(
         "stage2_runtime": t2,
         "stage3_runtime": t3,
         "total_runtime": t1 + t2 + t3,
+        "memory_update_skip":
+            cfg.get("stage2", {}).get(
+                    "memory_update_skip",
+                    1
+                ),
+        "runtime_per_frame":
+            (t1 + t2 + t3) / max(len(frame_names), 1),
+        "stage3_propagation_calls":
+            prop_perf["propagation_calls"],
+        "stage3_propagated_frames":
+            prop_perf["propagated_frames"],
+        "stage3_computed_frames":
+            prop_perf["computed_frames"],
+        "stage3_cache_hits":
+            prop_perf["cache_hits"],
+        "stage3_cache_misses":
+            prop_perf["cache_misses"],
+        "stage3_objects_processed":
+            prop_perf["objects_processed"],
+        "stage3_new_seeds":
+            discovery_stats["new_seeds"],
         "droplet_count": len(T),
         "frame_count": len(frame_names),
         "offset": int(offset),
