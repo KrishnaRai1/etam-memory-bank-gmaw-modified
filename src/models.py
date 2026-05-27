@@ -127,12 +127,14 @@ class EfficientTAMTracker:
             box=np.array(box_xyxy, dtype=np.float32)
         )
 
-    def propagate(self, **kwargs):
+    def propagate(self, perf_stats: dict | None = None, **kwargs):
         # bfloat16 + inference_mode: better throughput and lower VRAM during inference.
         import torch
         dev = "cuda" if self.device.type == "cuda" else "cpu"
         with torch.autocast(dev, dtype=torch.bfloat16), torch.inference_mode():
-            for f, ids, logits in self.predictor.propagate_in_video(self.state, **kwargs):
+            for f, ids, logits in self.predictor.propagate_in_video(
+                self.state, perf_stats=perf_stats, **kwargs
+            ):
                 yield int(f), [int(x) for x in ids], logits
 
 

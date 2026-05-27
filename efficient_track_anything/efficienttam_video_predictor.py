@@ -558,8 +558,9 @@ class EfficientTAMVideoPredictor(EfficientTAMBase):
         start_frame_idx=None,
         max_frame_num_to_track=None,
         reverse=False,
-        show_progress: bool = False,   # <--- NEW, default ON
-        memory_update_skip: int = 1,   # <--- RESEARCH MOD: skip memory update every N frames (1=no skip)
+        show_progress: bool = False,
+        memory_update_skip: int = 1,
+        perf_stats: dict | None = None,
     ):
         """
         Propagate the input points across frames to track in the entire video.
@@ -618,6 +619,14 @@ class EfficientTAMVideoPredictor(EfficientTAMBase):
             end_frame_idx = min(start_frame_idx + max_frame_num_to_track, num_frames - 1)
             processing_order = range(start_frame_idx, end_frame_idx + 1)
 
+        # Enable optional perf counters for Stage 3 / repeated propagation analysis.
+        if perf_stats is not None:
+            perf_stats.setdefault("propagated_frames", 0)
+            perf_stats.setdefault("cache_hits", 0)
+            perf_stats.setdefault("cache_misses", 0)
+            perf_stats.setdefault("computed_frames", 0)
+            perf_stats.setdefault("objects_processed", 0)
+
         # early-stop state
         gaps = [0] * batch_size
         tail_counter = 0
@@ -638,11 +647,24 @@ class EfficientTAMVideoPredictor(EfficientTAMBase):
                         self._clear_obj_non_cond_mem_around_input(
                             inference_state, frame_idx, obj_idx
                         )
+                    if perf_stats is not None:
+                        perf_stats["cache_hits"] += 1
+                elif frame_idx in obj_output_dict["non_cond_frame_outputs"]:
+                    storage_key = "non_cond_frame_outputs"
+                    current_out = obj_output_dict[storage_key][frame_idx]
+                    device = inference_state["device"]
+                    pred_masks = current_out["pred_masks"].to(device, non_blocking=True)
+                    # CACHE: reuse previously computed non-conditioning outputs instead of recomputing.
+                    if perf_stats is not None:
+                        perf_stats["cache_hits"] += 1
                 else:
                     storage_key = "non_cond_frame_outputs"
                     # RESEARCH MOD: skip memory encoding on frames that aren't multiples of memory_update_skip
                     # frame_idx relative to start_frame_idx for consistent skipping
-                    frame_offset = abs(frame_idx - start_frame_idx) if not reverse else abs(start_frame_idx - frame_idx)
+                    if start_frame_idx is None:
+                        frame_offset = 0
+                    else:
+                        frame_offset = abs(frame_idx - start_frame_idx) if not reverse else abs(start_frame_idx - frame_idx)
                     should_update_memory = (frame_offset % memory_update_skip) == 0
                     
                     current_out, pred_masks = self._run_single_frame_inference(
@@ -657,11 +679,19 @@ class EfficientTAMVideoPredictor(EfficientTAMBase):
                         run_mem_encoder=should_update_memory,  # Skip memory encoding for intermediate frames
                     )
                     obj_output_dict[storage_key][frame_idx] = current_out
+                    if perf_stats is not None:
+                        perf_stats["cache_misses"] += 1
+                        perf_stats["computed_frames"] += 1
 
                 inference_state["frames_tracked_per_obj"][obj_idx][frame_idx] = {
                     "reverse": reverse
                 }
                 pred_masks_per_obj[obj_idx] = pred_masks
+                if perf_stats is not None:
+                    perf_stats["objects_processed"] += 1
+
+            if perf_stats is not None:
+                perf_stats["propagated_frames"] += 1
 
             # upsample to original resolution
             if len(pred_masks_per_obj) > 1:

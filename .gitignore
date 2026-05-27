@@ -33,3 +33,11 @@ venv/
 .vscode/
 .DS_Store
 Thumbs.db
+outputs/ 
+test_frames/ 
+*.pt 
+__pycache__/ 
+*.pyc 
+.ipynb_checkpoints/ 
+experiment_logs/ 
+benchmark_results/ 

@@ -38,6 +38,10 @@ stage3:
   max_skip: 0
   min_px: 2
   overlap_thr: 0.1
+  enable_profiling: true
+  progress: true
+  reuse_existing_outputs: true
+  experiment_log_dir: experiment_logs
 yolo:
   classes:
     segment_only:

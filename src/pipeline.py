@@ -8,11 +8,14 @@ from __future__ import annotations
 import json
 import math
 import time
+from datetime import datetime
 from pathlib import Path
 from typing import Dict, List, Tuple
 
 import numpy as np
+import torch
 from PIL import Image
+from tqdm import tqdm
 
 from .models import YOLODetector, EfficientTAMTracker
 from .utils import (
@@ -73,6 +76,51 @@ def _coords_to_flat_indices(coords: MaskCoords, W: int) -> List[int]:
     if xs.size == 0:
         return []
     return (ys.astype(np.int64) * int(W) + xs.astype(np.int64)).astype(np.int32).tolist()
+
+
+def _get_gpu_memory_info() -> dict:
+    """Collect GPU memory stats if CUDA is available."""
+    if not torch.cuda.is_available():
+        return {"cuda_available": False}
+    return {
+        "cuda_available": True,
+        "device": torch.cuda.current_device(),
+        "device_name": torch.cuda.get_device_name(torch.cuda.current_device()),
+        "allocated_bytes": int(torch.cuda.memory_allocated()),
+        "reserved_bytes": int(torch.cuda.memory_reserved()),
+        "max_allocated_bytes": int(torch.cuda.max_memory_allocated()),
+        "max_reserved_bytes": int(torch.cuda.max_memory_reserved()),
+    }
+
+
+def _format_dt(ts: float) -> str:
+    return datetime.fromtimestamp(ts).strftime("%Y-%m-%d_%H-%M-%S")
+
+
+def _ensure_dir(path: Path) -> None:
+    path.mkdir(parents=True, exist_ok=True)
+
+
+def _save_experiment_log(log_dir: Path, log_data: dict) -> Path:
+    _ensure_dir(log_dir)
+    filename = f"experiment_{_format_dt(time.time())}.json"
+    filepath = log_dir / filename
+    with open(filepath, "w", encoding="utf-8") as f:
+        json.dump(log_data, f, indent=2)
+    return filepath
+
+
+def _load_last_experiment_log(log_dir: Path) -> dict | None:
+    if not log_dir.exists() or not log_dir.is_dir():
+        return None
+    logs = sorted(log_dir.glob("experiment_*.json"), reverse=True)
+    if not logs:
+        return None
+    try:
+        with open(logs[0], "r", encoding="utf-8") as f:
+            return json.load(f)
+    except Exception:
+        return None
 
 
 # ----------------------------
@@ -326,25 +374,65 @@ def _get_new_boxes_in_frame(
     H: int,
     W: int,
     min_px: int,
+    overlap_thr: float = 0.0,
 ) -> List[np.ndarray]:
-    # Build a union mask of every currently tracked object at frame f.
+    """Candidate discovery with a fast bbox prefilter and optional overlap threshold."""
+    # Build a list of tracked bounding boxes at frame f.
+    tracked_bboxes: List[tuple[int, int, int, int]] = []
     tracked_here: List[np.ndarray] = []
     for _oid, frames in T.items():
-        if f in frames:
-            tracked_here.append(_coords_to_bool(frames[f], H, W))
-    union_tracked = _union_bool(tracked_here, H, W)
+        coords = frames.get(f)
+        if coords is None:
+            continue
+        ys, xs = coords
+        if xs.size == 0:
+            continue
+        tracked_here.append(_coords_to_bool(coords, H, W))
+        tracked_bboxes.append((int(xs.min()), int(ys.min()), int(xs.max()), int(ys.max())))
 
-    # Any per-frame mask that doesn't touch the union is a new-object candidate.
+    union_tracked = _union_bool(tracked_here, H, W) if tracked_here else None
+
+    def _bbox_intersects(box1, box2):
+        x0a, y0a, x1a, y1a = box1
+        x0b, y0b, x1b, y1b = box2
+        return not (x1a < x0b or x1b < x0a or y1a < y0b or y1b < y0a)
+
     new_boxes: List[np.ndarray] = []
     for _local_id, coords in indep_masks[f]["mask_ids"].items():
         if _mask_area(coords) < min_px:
             continue
-        m = _coords_to_bool(coords, H, W)
-        if (union_tracked & m).any():
+
+        ys, xs = coords
+        if xs.size == 0:
             continue
-        xyxy = bbox_from_mask_bool(m)
-        if xyxy is not None:
-            new_boxes.append(np.array(xyxy, dtype=np.float32))
+        bbox = (int(xs.min()), int(ys.min()), int(xs.max()), int(ys.max()))
+
+        if tracked_bboxes:
+            if not any(_bbox_intersects(bbox, tb) for tb in tracked_bboxes):
+                xyxy = [bbox[0], bbox[1], bbox[2], bbox[3]]
+                new_boxes.append(np.array(xyxy, dtype=np.float32))
+                continue
+
+            if union_tracked is None:
+                continue
+
+            m = _coords_to_bool(coords, H, W)
+            overlap_px = int((union_tracked & m).sum())
+            if overlap_px > 0:
+                if overlap_thr <= 0.0:
+                    continue
+                if overlap_px / xs.size >= overlap_thr:
+                    continue
+
+            xyxy = bbox_from_mask_bool(m)
+            if xyxy is not None:
+                new_boxes.append(np.array(xyxy, dtype=np.float32))
+        else:
+            m = _coords_to_bool(coords, H, W)
+            xyxy = bbox_from_mask_bool(m)
+            if xyxy is not None:
+                new_boxes.append(np.array(xyxy, dtype=np.float32))
+
     return new_boxes
 
 
@@ -361,8 +449,18 @@ def stage3_track_and_discover(
     # min_px and kill_after_gap are welding-aware extras (see configs/pipeline.yaml).
     # Setting either to 0 disables it and falls back to paper behaviour.
     batch_sz = int(cfg["yolo"].get("batch_init", 999999))
-    min_px = int(cfg["stage3"].get("min_px", 0))
-    kill_gap = int(cfg["stage3"].get("kill_after_gap", 0))
+    cfg_stage3 = cfg.get("stage3", {})
+    min_px = int(cfg_stage3.get("min_px", 0))
+    kill_gap = int(cfg_stage3.get("kill_after_gap", 0))
+    overlap_thr = float(cfg_stage3.get("overlap_thr", 0.0))
+    max_skip = int(cfg_stage3.get("max_skip", 0))
+    profiling = bool(cfg_stage3.get("enable_profiling", True))
+    progress = bool(cfg_stage3.get("progress", True))
+    reuse_outputs = bool(cfg_stage3.get("reuse_existing_outputs", True))
+    log_dir = Path(cfg_stage3.get("experiment_log_dir", "experiment_logs"))
+    if cfg.get("data", {}).get("output_root"):
+        log_dir = Path(cfg["data"]["output_root"]) / log_dir
+    # RESEARCH OPTIMIZATION: use incremental propagation and reuse existing Track outputs across discovery batches.
 
     T: Dict[int, Dict[int, MaskCoords]] = {}
     N = len(frame_names)
@@ -380,9 +478,32 @@ def stage3_track_and_discover(
         for oid in oids:
             alive[oid] = {"start": int(f_seed_local), "gap": 0, "dead": False}
 
-    def _consume_propagate():
+    # PROFILING: collect Stage 3 propagation and discovery metrics.
+    prop_perf: dict = {
+        "propagation_calls": 0,
+        "propagated_frames": 0,
+        "computed_frames": 0,
+        "cache_hits": 0,
+        "cache_misses": 0,
+        "objects_processed": 0,
+    }
+    discovery_stats: dict = {
+        "candidate_frames": 0,
+        "candidates_seen": 0,
+        "new_seeds": 0,
+        "frames_skipped_by_max_skip": 0,
+    }
+
+    def _consume_propagate(start_frame_local: int):
         # Drain the propagator until the next reset(); writes coords into T.
-        for f_abs, ids, logits in etam.propagate():
+        prop_perf["propagation_calls"] += 1
+        for f_abs, ids, logits in etam.propagate(
+            perf_stats=prop_perf,
+            start_frame_idx=offset + start_frame_local,
+            max_frame_num_to_track=(N - 1 - start_frame_local),
+            reverse=False,
+            show_progress=progress,
+        ):
             f_abs = int(f_abs)
             f_loc = f_abs - offset
             if f_loc < 0 or f_loc >= N:
@@ -410,14 +531,23 @@ def stage3_track_and_discover(
                     T[oid] = {}
                 T[oid][f_loc] = coords
 
+    if progress:
+        print(f"[Stage3] Starting track-and-discover on {N} frames, first non-empty frame {i0}")
+
     t0 = time.time()
+    first_batch = True
+    has_state = False
 
     # Initial seeds from the first frame that actually has detections (i0).
     boxes0 = boxes_by_f.get(i0, np.zeros((0, 4), dtype=np.float32))
     oid_base = 0
     if len(boxes0) > 0:
+        if progress:
+            print(f"[Stage3] Seeding {len(boxes0)} initial objects at frame {i0}")
         for start in range(0, len(boxes0), batch_sz):
-            etam.reset()
+            if not has_state or not reuse_outputs:
+                etam.reset()
+                has_state = True
             sl = slice(start, min(start + batch_sz, len(boxes0)))
             seeded_oids = []
             for j, b in enumerate(boxes0[sl], start=1):
@@ -425,17 +555,37 @@ def stage3_track_and_discover(
                 etam.seed_box(offset + i0, oid, b)
                 seeded_oids.append(oid)
             _register_oids(seeded_oids, i0)
-            _consume_propagate()
+            _consume_propagate(i0)
+            oid_base = max(oid_base, max(seeded_oids))
         oid_base = max(T.keys()) if T else 0
 
     # Sweep forward, seeding any new object detected at f_next.
-    for i in range(i0, N - 1):
+    for i in tqdm(range(i0, N - 1), desc="[Stage3] discovery", disable=not progress):
         f_next = i + 1
-        new_boxes = _get_new_boxes_in_frame(f_next, indep_masks, T, H, W, min_px)
+        if max_skip and ((i - i0) % (max_skip + 1) != 0):
+            discovery_stats["frames_skipped_by_max_skip"] += 1
+            continue
+
+        discovery_stats["candidate_frames"] += 1
+        new_boxes = _get_new_boxes_in_frame(
+            f_next,
+            indep_masks,
+            T,
+            H,
+            W,
+            min_px,
+            overlap_thr=overlap_thr,
+        )
+        discovery_stats["candidates_seen"] += len(new_boxes)
         if not new_boxes:
             continue
+
+        if progress:
+            print(f"[Stage3] Frame {f_next}: discovered {len(new_boxes)} new candidate(s) objects={len(new_boxes)}")
         for start in range(0, len(new_boxes), batch_sz):
-            etam.reset()
+            if not has_state or not reuse_outputs:
+                etam.reset()
+                has_state = True
             sl = slice(start, min(start + batch_sz, len(new_boxes)))
             seeded_oids = []
             for j, b in enumerate(new_boxes[sl], start=1):
@@ -443,10 +593,53 @@ def stage3_track_and_discover(
                 etam.seed_box(offset + f_next, oid, b)
                 seeded_oids.append(oid)
             _register_oids(seeded_oids, f_next)
-            _consume_propagate()
+            discovery_stats["new_seeds"] += len(seeded_oids)
+            _consume_propagate(f_next)
             oid_base += (sl.stop - sl.start)
 
-    return T, (time.time() - t0)
+    t3 = time.time() - t0
+    if progress:
+        print(f"[Stage3] finished in {t3:.2f}s")
+        print(f"[Stage3] propagation calls={prop_perf['propagation_calls']} frames={prop_perf['propagated_frames']} "
+              f"computed={prop_perf['computed_frames']} cache_hits={prop_perf['cache_hits']} "
+              f"new_seeds={discovery_stats['new_seeds']} candidates={discovery_stats['candidates_seen']}")
+
+    if profiling:
+        perf_dict = {
+            "stage3_runtime": t3,
+            "stage3_candidates_frames": discovery_stats["candidate_frames"],
+            "stage3_candidates_seen": discovery_stats["candidates_seen"],
+            "stage3_new_seeds": discovery_stats["new_seeds"],
+            "stage3_skipped_frames": discovery_stats["frames_skipped_by_max_skip"],
+            "stage3_propagation_calls": prop_perf["propagation_calls"],
+            "stage3_propagated_frames": prop_perf["propagated_frames"],
+            "stage3_computed_frames": prop_perf["computed_frames"],
+            "stage3_cache_hits": prop_perf["cache_hits"],
+            "stage3_cache_misses": prop_perf["cache_misses"],
+            "stage3_objects_processed": prop_perf["objects_processed"],
+            "gpu": _get_gpu_memory_info(),
+            "config": {
+                "min_px": min_px,
+                "kill_gap": kill_gap,
+                "overlap_thr": overlap_thr,
+                "max_skip": max_skip,
+                "batch_sz": batch_sz,
+                "reuse_outputs": reuse_outputs,
+            },
+            "frame_count": N,
+            "object_count": len(T),
+        }
+        previous_log = _load_last_experiment_log(log_dir)
+        log_path = _save_experiment_log(log_dir, perf_dict)
+        if progress:
+            print(f"[Stage3] experiment log saved to {log_path}")
+        if previous_log is not None and previous_log.get("stage3_runtime") is not None:
+            prev = previous_log["stage3_runtime"]
+            speedup = prev / t3 if t3 > 0 else 0.0
+            if progress:
+                print(f"[Stage3] baseline={prev:.2f}s optimized={t3:.2f}s speedup={speedup:.2f}x")
+
+    return T, t3
 
 
 # ----------------------------
@@ -588,6 +781,35 @@ def run_pipeline(
     # ---------- Stage 3 ----------
     T, t3 = stage3_track_and_discover(cfg, etam, frame_names, boxes_filt, masks_filt, H, W, offset=offset)
     print(f"[Stage 3] done in {t3:.2f}s")
+
+    # ---------- experiment logging ----------
+    experiment_log_dir = Path(cfg.get("stage3", {}).get("experiment_log_dir", "experiment_logs"))
+    full_run_log = {
+        "stage1_runtime": t1,
+        "stage2_runtime": t2,
+        "stage3_runtime": t3,
+        "total_runtime": t1 + t2 + t3,
+        "droplet_count": len(T),
+        "frame_count": len(frame_names),
+        "offset": int(offset),
+        "device": str(cfg["run"].get("device", "auto")),
+        "gpu": _get_gpu_memory_info(),
+        "config": {
+            "stage2_mode": cfg["stage2"].get("mode", "forward_iou"),
+            "stage3": cfg.get("stage3", {}),
+            "yolo": {"conf": cfg["yolo"].get("conf"), "iou": cfg["yolo"].get("iou")},
+        },
+    }
+    previous_run = _load_last_experiment_log(output_root / experiment_log_dir)
+    log_path = _save_experiment_log(output_root / experiment_log_dir, full_run_log)
+    print(f"[Experiment] run log written to {log_path}")
+    if previous_run is not None and previous_run.get("total_runtime") is not None:
+        baseline_total = previous_run["total_runtime"]
+        speedup_total = baseline_total / full_run_log["total_runtime"] if full_run_log["total_runtime"] > 0 else 0.0
+        print(
+            f"[Experiment] baseline_total={baseline_total:.2f}s optimized_total={full_run_log['total_runtime']:.2f}s "
+            f"speedup={speedup_total:.2f}x droplet_delta={len(T) - previous_run.get('droplet_count', 0)}"
+        )
 
     # ---------- outputs: parquet + meta (overlays are handled by tools/) ----------
     frames_meta = {
