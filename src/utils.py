@@ -1,6 +1,12 @@
 # Shared utilities: frame listing, mask geometry,
-# track/overlay saving, and EfficientTAM package path resolution.
-import os, re, json, time
+# track/overlay saving, EfficientTAM package path resolution,
+# and benchmark reporting tools.
+import os
+import re
+import json
+import time
+import csv
+from collections import Counter
 from pathlib import Path
 import numpy as np
 from importlib.resources import files as pkg_files
@@ -9,7 +15,6 @@ from PIL import Image, ImageDraw, ImageFont
 
 # -------- frames --------
 def load_frame_names(video_dir: str):
-    # .jpg/.jpeg only. Sort by the number embedded in the filename (e.g. 000123.jpg).
     names = [p for p in os.listdir(video_dir) if os.path.splitext(p)[-1].lower() in (".jpg", ".jpeg")]
     def _key(p: str):
         m = re.search(r"\d+", p)
@@ -18,7 +23,6 @@ def load_frame_names(video_dir: str):
     return names
 
 def ensure_run_dir(output_root: str) -> Path:
-    # Timestamped subfolder per run so we don't clobber previous runs.
     run_dir = Path(output_root) / time.strftime("%Y-%m-%d_%H-%M-%S")
     (run_dir / "overlays").mkdir(parents=True, exist_ok=True)
     (run_dir / "masks").mkdir(parents=True, exist_ok=True)
@@ -41,16 +45,13 @@ def bbox_from_mask_bool(mask2d: np.ndarray):
         return None
     return [float(xs.min()), float(ys.min()), float(xs.max()), float(ys.max())]
 
-
 def iou_masks(m1: np.ndarray, m2: np.ndarray) -> float:
     inter = np.logical_and(m1, m2).sum(dtype=np.float64)
     union = np.logical_or(m1, m2).sum(dtype=np.float64)
     return float(inter / max(union, 1.0))
 
-
 # -------- saving --------
 def _to_list(a):
-    # Coerce to a plain list (accepts ndarray, scalar, list/tuple).
     if a is None:
         return []
     if isinstance(a, (list, tuple)):
@@ -70,7 +71,6 @@ def save_T_json(T: dict, path: Path):
         json.dump(out, f)
 
 def save_trajectory_csv(T: dict, path: Path):
-    import csv
     with open(path, "w", newline="") as f:
         w = csv.writer(f)
         w.writerow(["frame_idx","obj_id","centroid_x","centroid_y","area_px"])
@@ -98,13 +98,10 @@ def save_overlay_union(frame_path: Path, masks_bin: list[np.ndarray], out_path: 
 
 # -------- EfficientTAM package path resolution --------
 def pkg_path(package: str, rel: str, fallback: str) -> str:
-    # Works whether EfficientTAM is installed as a package
-    # or sits as a local folder in the repo.
     try:
         return str(pkg_files(package).joinpath(rel))
     except Exception:
         return str((Path(fallback) / rel).resolve())
-
 
 def centroid_from_coords(coords):
     ys, xs = coords
@@ -112,8 +109,6 @@ def centroid_from_coords(coords):
     return float(xs.mean()), float(ys.mean())
 
 def save_segonly_by_frame_json(seg_by_frame: dict[int, list[tuple[np.ndarray, np.ndarray]]], path: Path):
-    # Segment-only masks (classes we don't track) in sparse form:
-    #   {"<frame>": [[ys, xs], [ys, xs], ...]}
     out = {}
     for fi, masks in seg_by_frame.items():
         out[str(fi)] = []
@@ -130,14 +125,11 @@ def save_overlay_with_ids(
     extra_masks: list[tuple[np.ndarray, np.ndarray]] | None = None,
     extra_alpha: float = 0.30,
 ):
-    # Two layers: extra_masks (no IDs, behind) and tracked items with
-    # per-ID color plus a label at the centroid on top.
     base = Image.open(frame_path).convert("RGBA")
     W, H = base.size
 
     overlay_arr = np.zeros((H, W, 4), dtype=np.uint8)
 
-    # segment-only layer (drawn first, behind tracked items)
     if extra_masks:
         seg_col = np.array([0, 180, 255, int(max(0.0, min(1.0, extra_alpha)) * 255)], dtype=np.uint8)
         for ys, xs in extra_masks:
@@ -146,7 +138,6 @@ def save_overlay_with_ids(
                 xs_clamped = np.clip(xs, 0, W - 1)
                 overlay_arr[ys_clamped, xs_clamped] = seg_col
 
-    # deterministic color per ID
     def _color_for(oid: int) -> np.ndarray:
         r = (37 * oid) % 255
         g = (91 * oid) % 255
@@ -164,8 +155,6 @@ def save_overlay_with_ids(
     overlay = Image.fromarray(overlay_arr, mode="RGBA")
     comp = Image.alpha_composite(base, overlay).convert("RGB")
 
-    # IDs at the centroid, with a white stroke for contrast
-    from PIL import ImageDraw, ImageFont
     draw = ImageDraw.Draw(comp)
     try:
         font = ImageFont.load_default()
@@ -186,3 +175,84 @@ def save_overlay_with_ids(
             )
 
     comp.save(out_path)
+
+# -------- Benchmark Evaluation Tools --------
+def export_benchmark_summary(log_data_list: list[dict], out_dir: Path):
+    """Generates an aggregated Markdown report and CSV for benchmark runs."""
+    out_dir.mkdir(parents=True, exist_ok=True)
+    
+    csv_path = out_dir / "benchmark_summary.csv"
+    headers = [
+        "interval_id", "category", "frame_count", "droplet_count", 
+        "manual_count", "count_delta", "total_runtime", "stage3_runtime"
+    ]
+    
+    with open(csv_path, 'w', newline='') as f:
+        writer = csv.DictWriter(f, fieldnames=headers)
+        writer.writeheader()
+        for log in log_data_list:
+            man_count = log.get("benchmark_manual_count", 0)
+            sys_count = log.get("droplet_count", 0)
+            
+            writer.writerow({
+                "interval_id": log.get("benchmark_interval"),
+                "category": log.get("benchmark_category"),
+                "frame_count": log.get("frame_count"),
+                "droplet_count": sys_count,
+                "manual_count": man_count,
+                "count_delta": abs(man_count - sys_count) if man_count != -1 else "N/A",
+                "total_runtime": round(log.get("total_runtime", 0), 2),
+                "stage3_runtime": round(log.get("stage3_runtime", 0), 2)
+            })
+
+    md_path = out_dir / "benchmark_summary.md"
+    categories = Counter([log.get("benchmark_category") for log in log_data_list])
+    
+    with open(md_path, 'w') as f:
+        f.write("# Benchmark Evaluation Summary\n\n")
+        f.write("## Overview\n")
+        f.write(f"- Total Intervals Processed: {len(log_data_list)}\n")
+        for cat, count in categories.items():
+            f.write(f"  - **{cat}**: {count}\n")
+            
+        f.write("\n## Detailed Results\n")
+        f.write("| Interval ID | Category | Frames | Sys Count | Manual Count | Stage 3 Time (s) |\n")
+        f.write("|-------------|----------|--------|-----------|--------------|------------------|\n")
+        for log in log_data_list:
+            man_count = log.get("benchmark_manual_count", -1)
+            man_str = str(man_count) if man_count != -1 else "N/A"
+            f.write(f"| {log.get('benchmark_interval')} | {log.get('benchmark_category')} | {log.get('frame_count')} | "
+                    f"{log.get('droplet_count')} | {man_str} | {round(log.get('stage3_runtime', 0), 2)} |\n")
+
+def visualize_id_switches(
+    frames_dir: Path,
+    frame_names: list[str],
+    T: dict[int, dict[int, tuple]],
+    out_dir: Path,
+    highlight_ids: list[int] = None
+):
+    """Renders frames highlighting specific IDs. Useful for debugging ID switch errors."""
+    out_dir.mkdir(parents=True, exist_ok=True)
+    
+    for fi, fname in enumerate(frame_names):
+        frame_path = frames_dir / fname
+        if not frame_path.exists(): 
+            continue
+        
+        active_items = []
+        for oid, frames in T.items():
+            if highlight_ids and oid not in highlight_ids:
+                continue
+            if fi in frames:
+                active_items.append((frames[fi], oid))
+                
+        if not active_items: 
+            continue 
+            
+        out_path = out_dir / f"switch_debug_{fi:06d}.jpg"
+        save_overlay_with_ids(
+            frame_path=frame_path,
+            items=active_items,
+            out_path=out_path,
+            alpha=0.6,
+        )

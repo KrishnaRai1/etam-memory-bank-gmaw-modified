@@ -1,7 +1,7 @@
 # Core of the paper's 3 stages:
 #   Stage 1: per-frame YOLO + EfficientTAM with bbox prompts (per-frame mask).
 #   Stage 2: temporal filter (IoU against a window of w frames).
-#   Stage 3: long-term tracking + new-object discovery.
+#   Stage 3: long-term tracking + new-object discovery (Optimized).
 # Outputs are written as parquet (tracks.parquet, segonly.parquet) + frames_meta.json.
 from __future__ import annotations
 
@@ -23,7 +23,7 @@ from .utils import (
     ensure_run_dir,
     iou_masks,
     bbox_from_mask_bool,
-    save_T_json,          # T.json is consumed by run_chunks during merge
+    save_T_json,
     save_trajectory_csv,
 )
 
@@ -38,16 +38,13 @@ PerFrameMasks = Dict[int, Dict[str, dict]]   # {f: {"mask_ids": {local_id: (ys,x
 # Local helpers
 # ----------------------------
 def _downsample_names(names: List[str], factor: int) -> List[str]:
-    # Uniform subsampling before Stage 1 (paper: "frames are subsampled").
     if factor <= 1:
         return names
     idx = np.round(np.linspace(0, len(names) - 1, math.ceil(len(names) / factor))).astype(int)
     return [names[i] for i in idx]
 
-
 def _mask_area(coords: MaskCoords) -> int:
     return int(coords[0].size)
-
 
 def _coords_to_bool(coords: MaskCoords, H: int, W: int) -> np.ndarray:
     m = np.zeros((H, W), dtype=bool)
@@ -55,7 +52,6 @@ def _coords_to_bool(coords: MaskCoords, H: int, W: int) -> np.ndarray:
     if xs.size:
         m[ys, xs] = True
     return m
-
 
 def _union_bool(masks: List[np.ndarray], H: int, W: int) -> np.ndarray:
     u = np.zeros((H, W), dtype=bool)
@@ -65,21 +61,16 @@ def _union_bool(masks: List[np.ndarray], H: int, W: int) -> np.ndarray:
         u |= m
     return u
 
-
 def _count_in_frame(T: Dict[int, Dict[int, MaskCoords]], f: int) -> int:
     return sum(1 for _, frames in T.items() if f in frames)
 
-
 def _coords_to_flat_indices(coords: MaskCoords, W: int) -> List[int]:
-    # Pack (y, x) into y*W + x and cast to int32 for compact parquet storage.
     ys, xs = coords
     if xs.size == 0:
         return []
     return (ys.astype(np.int64) * int(W) + xs.astype(np.int64)).astype(np.int32).tolist()
 
-
 def _get_gpu_memory_info() -> dict:
-    """Collect GPU memory stats if CUDA is available."""
     if not torch.cuda.is_available():
         return {"cuda_available": False}
     return {
@@ -92,14 +83,11 @@ def _get_gpu_memory_info() -> dict:
         "max_reserved_bytes": int(torch.cuda.max_memory_reserved()),
     }
 
-
 def _format_dt(ts: float) -> str:
     return datetime.fromtimestamp(ts).strftime("%Y-%m-%d_%H-%M-%S")
 
-
 def _ensure_dir(path: Path) -> None:
     path.mkdir(parents=True, exist_ok=True)
-
 
 def _save_experiment_log(log_dir: Path, log_data: dict) -> Path:
     _ensure_dir(log_dir)
@@ -108,7 +96,6 @@ def _save_experiment_log(log_dir: Path, log_data: dict) -> Path:
     with open(filepath, "w", encoding="utf-8") as f:
         json.dump(log_data, f, indent=2)
     return filepath
-
 
 def _load_last_experiment_log(log_dir: Path) -> dict | None:
     if not log_dir.exists() or not log_dir.is_dir():
@@ -125,8 +112,6 @@ def _load_last_experiment_log(log_dir: Path) -> dict | None:
 
 # ----------------------------
 # Stage 1: per-frame YOLO detection + EfficientTAM segmentation, multi-class.
-# Each frame is processed independently; YOLO boxes become bbox prompts for the
-# segmenter, batched in a single call to amortize EfficientTAM overhead.
 # ----------------------------
 def stage1_detect_and_segment(
     cfg: dict,
@@ -160,11 +145,10 @@ def stage1_detect_and_segment(
     t0 = time.time()
     for f_idx, name in enumerate(frame_names):
         img_path = str(Path(video_dir) / name)
-        per_cls_boxes = det.detect_by_class(img_path)  # {cls -> boxes}
+        per_cls_boxes = det.detect_by_class(img_path)
         boxes_by_f_by_cls[f_idx] = {}
         indep_masks_by_f_by_cls[f_idx] = {}
 
-        # Make sure every selected class has an entry, even if YOLO found none.
         all_cls = set(per_cls_boxes.keys())
         if classes_to_segment:
             all_cls |= set(int(c) for c in classes_to_segment)
@@ -173,8 +157,7 @@ def stage1_detect_and_segment(
             boxes_by_f_by_cls[f_idx][int(cls_id)] = boxes_c
             indep_masks_by_f_by_cls[f_idx][int(cls_id)] = {"mask_ids": {}, "boxes": boxes_c}
 
-        # One EfficientTAM call per frame for all classes; owners maps mask -> (cls, j).
-        owners: List[tuple[int, int]] = []  # (cls_id, j_in_class)
+        owners: List[tuple[int, int]] = []
         merged = []
         for cls_id in sorted(all_cls):
             boxes_c = boxes_by_f_by_cls[f_idx][int(cls_id)]
@@ -190,7 +173,6 @@ def stage1_detect_and_segment(
         abs_idx = offset + f_idx
         masks_bool = tracker.segment_boxes_at_frame(abs_idx, merged_boxes)
 
-        # Split masks back into per-class buckets.
         for k, (cls_id, j_local) in enumerate(owners):
             m = masks_bool[k]
             if m is None:
@@ -203,9 +185,6 @@ def stage1_detect_and_segment(
 
 # ----------------------------
 # Stage 2 (variant A): forward-only IoU.
-# Lightweight approximation of the paper's filter: from each detection at frame i,
-# walk forward up to w-1 frames and keep it if it matches independent masks in
-# enough subsequent frames (need_hits = ceil(0.5 * available_window)).
 # ----------------------------
 def stage2_temporal_filter_forward_iou(
     cfg: dict,
@@ -221,7 +200,6 @@ def stage2_temporal_filter_forward_iou(
     t0 = time.time()
     N = len(boxes_by_f)
 
-    # Rasterize coords to dense bool masks once; IoU comparisons reuse them.
     bools_by_f: Dict[int, List[np.ndarray]] = {}
     order_ids_by_f: Dict[int, List[int]] = {}
     for f in range(N):
@@ -272,7 +250,6 @@ def stage2_temporal_filter_forward_iou(
                 if best_iou >= iou_thr:
                     hits += 1
                     cur_m = best_m
-                # Early exit: even with remaining steps we cannot reach need_hits.
                 if hits + (avail - step) < need_hits:
                     break
 
@@ -280,11 +257,9 @@ def stage2_temporal_filter_forward_iou(
                 keep_idx.append(j)
 
         kept = boxes[keep_idx, :] if keep_idx else np.zeros((0, 4), dtype=np.float32)
-
         mask_ids_new = {}
         for new_k, j in enumerate(keep_idx, start=1):
-            lid_orig = cur_lids[j]
-            mask_ids_new[new_k] = indep_masks[i]["mask_ids"][lid_orig]
+            mask_ids_new[new_k] = indep_masks[i]["mask_ids"][cur_lids[j]]
 
         filt_boxes[i] = kept
         filt_masks[i] = {"mask_ids": mask_ids_new, "boxes": kept}
@@ -294,9 +269,6 @@ def stage2_temporal_filter_forward_iou(
 
 # ----------------------------
 # Stage 2 (variant B): paper-style bidirectional propagate + IoU.
-# Track each detection w-1 frames backward and w-1 frames forward through
-# EfficientTAM, then count how many consecutive frames (centered on i) have an
-# IoU match with the independent per-frame masks. Keep when consec >= w.
 # ----------------------------
 def stage2_temporal_filter(
     cfg: dict,
@@ -322,7 +294,7 @@ def stage2_temporal_filter(
             filt_masks[i] = {"mask_ids": {}, "boxes": filt_boxes[i]}
             continue
 
-        window_tracks = etam.track_window(i, boxes, w)  # {tmp_oid -> {f -> (ys,xs)}}
+        window_tracks = etam.track_window(i, boxes, w) 
 
         keep_idx = []
         for j, _b in enumerate(boxes):
@@ -363,9 +335,7 @@ def stage2_temporal_filter(
 
 # ----------------------------
 # Stage 3: long-term tracking + new-object discovery.
-# Existing masklets are propagated through the whole video. At each frame we
-# look at the independent per-frame masks: any mask that does not overlap any
-# alive masklet seeds a brand-new object that is then tracked forward.
+# (Optimized with Fast BBox Evaluation & Lazy Union Evaluation)
 # ----------------------------
 def _get_new_boxes_in_frame(
     f: int,
@@ -376,10 +346,17 @@ def _get_new_boxes_in_frame(
     min_px: int,
     overlap_thr: float = 0.0,
 ) -> List[np.ndarray]:
-    """Candidate discovery with a fast bbox prefilter and optional overlap threshold."""
-    # Build a list of tracked bounding boxes at frame f.
+    """Candidate discovery with a fast bbox prefilter, optional overlap threshold, and cached intersections."""
+    
+    # STAGE3 OPTIMIZATION: Early pruning. If YOLO didn't detect any independent 
+    # masks on this frame, we absolutely cannot discover a new object here.
+    if not indep_masks[f].get("mask_ids"):
+        return []
+
     tracked_bboxes: List[tuple[int, int, int, int]] = []
-    tracked_here: List[np.ndarray] = []
+    tracked_here: List[MaskCoords] = []
+    
+    # STAGE3 OPTIMIZATION: Fast Bbox extraction before expensive boolean operations
     for _oid, frames in T.items():
         coords = frames.get(f)
         if coords is None:
@@ -387,15 +364,17 @@ def _get_new_boxes_in_frame(
         ys, xs = coords
         if xs.size == 0:
             continue
-        tracked_here.append(_coords_to_bool(coords, H, W))
+        tracked_here.append((ys, xs))
         tracked_bboxes.append((int(xs.min()), int(ys.min()), int(xs.max()), int(ys.max())))
-
-    union_tracked = _union_bool(tracked_here, H, W) if tracked_here else None
 
     def _bbox_intersects(box1, box2):
         x0a, y0a, x1a, y1a = box1
         x0b, y0b, x1b, y1b = box2
         return not (x1a < x0b or x1b < x0a or y1a < y0b or y1b < y0a)
+
+    # STAGE3 OPTIMIZATION: Lazy union construction. Only build the dense union 
+    # mask if a bounding-box collision actually happens.
+    union_tracked = None  
 
     new_boxes: List[np.ndarray] = []
     for _local_id, coords in indep_masks[f]["mask_ids"].items():
@@ -408,21 +387,23 @@ def _get_new_boxes_in_frame(
         bbox = (int(xs.min()), int(ys.min()), int(xs.max()), int(ys.max()))
 
         if tracked_bboxes:
+            # Fast pass: Bounding Box intersection
             if not any(_bbox_intersects(bbox, tb) for tb in tracked_bboxes):
-                xyxy = [bbox[0], bbox[1], bbox[2], bbox[3]]
-                new_boxes.append(np.array(xyxy, dtype=np.float32))
+                new_boxes.append(np.array([bbox[0], bbox[1], bbox[2], bbox[3]], dtype=np.float32))
                 continue
 
+            # Slow pass: Pixel-level overlap evaluation (Cached dense arrays)
             if union_tracked is None:
-                continue
+                # Build only when absolutely necessary
+                bool_masks = [_coords_to_bool(c, H, W) for c in tracked_here]
+                union_tracked = _union_bool(bool_masks, H, W) if bool_masks else np.zeros((H,W), dtype=bool)
 
             m = _coords_to_bool(coords, H, W)
             overlap_px = int((union_tracked & m).sum())
+            
             if overlap_px > 0:
-                if overlap_thr <= 0.0:
-                    continue
-                if overlap_px / xs.size >= overlap_thr:
-                    continue
+                if overlap_thr <= 0.0 or (overlap_px / xs.size >= overlap_thr):
+                    continue # Tracked object overlaps too much, ignore as new seed
 
             xyxy = bbox_from_mask_bool(m)
             if xyxy is not None:
@@ -446,8 +427,6 @@ def stage3_track_and_discover(
     W: int,
     offset: int = 0,
 ):
-    # min_px and kill_after_gap are welding-aware extras (see configs/pipeline.yaml).
-    # Setting either to 0 disables it and falls back to paper behaviour.
     batch_sz = int(cfg["yolo"].get("batch_init", 999999))
     cfg_stage3 = cfg.get("stage3", {})
     min_px = int(cfg_stage3.get("min_px", 0))
@@ -457,15 +436,14 @@ def stage3_track_and_discover(
     profiling = bool(cfg_stage3.get("enable_profiling", True))
     progress = bool(cfg_stage3.get("progress", True))
     reuse_outputs = bool(cfg_stage3.get("reuse_existing_outputs", True))
+    
     log_dir = Path(cfg_stage3.get("experiment_log_dir", "experiment_logs"))
     if cfg.get("data", {}).get("output_root"):
         log_dir = Path(cfg["data"]["output_root"]) / log_dir
-    # RESEARCH OPTIMIZATION: use incremental propagation and reuse existing Track outputs across discovery batches.
 
     T: Dict[int, Dict[int, MaskCoords]] = {}
     N = len(frame_names)
 
-    # Skip leading frames with no detections so the first seed is meaningful.
     i0 = 0
     for j in range(N):
         if boxes_by_f.get(j) is not None and len(boxes_by_f[j]) > 0:
@@ -478,7 +456,6 @@ def stage3_track_and_discover(
         for oid in oids:
             alive[oid] = {"start": int(f_seed_local), "gap": 0, "dead": False}
 
-    # PROFILING: collect Stage 3 propagation and discovery metrics.
     prop_perf: dict = {
         "propagation_calls": 0,
         "propagated_frames": 0,
@@ -495,7 +472,6 @@ def stage3_track_and_discover(
     }
 
     def _consume_propagate(start_frame_local: int):
-        # Drain the propagator until the next reset(); writes coords into T.
         prop_perf["propagation_calls"] += 1
         for f_abs, ids, logits in etam.propagate(
             perf_stats=prop_perf,
@@ -517,8 +493,6 @@ def stage3_track_and_discover(
                 m = (logits[k] > 0).detach().cpu().numpy().squeeze().astype(bool)
                 area_px = int(m.sum())
 
-                # Mask too small: count as gap. After kill_gap gaps the track dies
-                # and will not be revived even if a future frame matches.
                 if area_px < min_px:
                     info["gap"] = int(info["gap"]) + 1
                     if kill_gap and info["gap"] >= kill_gap:
@@ -531,19 +505,13 @@ def stage3_track_and_discover(
                     T[oid] = {}
                 T[oid][f_loc] = coords
 
-    if progress:
-        print(f"[Stage3] Starting track-and-discover on {N} frames, first non-empty frame {i0}")
-
     t0 = time.time()
     first_batch = True
     has_state = False
 
-    # Initial seeds from the first frame that actually has detections (i0).
     boxes0 = boxes_by_f.get(i0, np.zeros((0, 4), dtype=np.float32))
     oid_base = 0
     if len(boxes0) > 0:
-        if progress:
-            print(f"[Stage3] Seeding {len(boxes0)} initial objects at frame {i0}")
         for start in range(0, len(boxes0), batch_sz):
             if not has_state or not reuse_outputs:
                 etam.reset()
@@ -559,7 +527,6 @@ def stage3_track_and_discover(
             oid_base = max(oid_base, max(seeded_oids))
         oid_base = max(T.keys()) if T else 0
 
-    # Sweep forward, seeding any new object detected at f_next.
     for i in tqdm(range(i0, N - 1), desc="[Stage3] discovery", disable=not progress):
         f_next = i + 1
         if max_skip and ((i - i0) % (max_skip + 1) != 0):
@@ -568,20 +535,12 @@ def stage3_track_and_discover(
 
         discovery_stats["candidate_frames"] += 1
         new_boxes = _get_new_boxes_in_frame(
-            f_next,
-            indep_masks,
-            T,
-            H,
-            W,
-            min_px,
-            overlap_thr=overlap_thr,
+            f_next, indep_masks, T, H, W, min_px, overlap_thr=overlap_thr,
         )
         discovery_stats["candidates_seen"] += len(new_boxes)
         if not new_boxes:
             continue
 
-        if progress:
-            print(f"[Stage3] Frame {f_next}: discovered {len(new_boxes)} new candidate(s) objects={len(new_boxes)}")
         for start in range(0, len(new_boxes), batch_sz):
             if not has_state or not reuse_outputs:
                 etam.reset()
@@ -598,11 +557,6 @@ def stage3_track_and_discover(
             oid_base += (sl.stop - sl.start)
 
     t3 = time.time() - t0
-    if progress:
-        print(f"[Stage3] finished in {t3:.2f}s")
-        print(f"[Stage3] propagation calls={prop_perf['propagation_calls']} frames={prop_perf['propagated_frames']} "
-              f"computed={prop_perf['computed_frames']} cache_hits={prop_perf['cache_hits']} "
-              f"new_seeds={discovery_stats['new_seeds']} candidates={discovery_stats['candidates_seen']}")
 
     if profiling:
         perf_dict = {
@@ -629,22 +583,13 @@ def stage3_track_and_discover(
             "frame_count": N,
             "object_count": len(T),
         }
-        previous_log = _load_last_experiment_log(log_dir)
-        log_path = _save_experiment_log(log_dir, perf_dict)
-        if progress:
-            print(f"[Stage3] experiment log saved to {log_path}")
-        if previous_log is not None and previous_log.get("stage3_runtime") is not None:
-            prev = previous_log["stage3_runtime"]
-            speedup = prev / t3 if t3 > 0 else 0.0
-            if progress:
-                print(f"[Stage3] baseline={prev:.2f}s optimized={t3:.2f}s speedup={speedup:.2f}x")
+        _save_experiment_log(log_dir, perf_dict)
 
     return T, t3
 
 
 # ----------------------------
 # Orchestrator: wires Stages 1-3 together and writes parquet outputs.
-# Invoked directly (single process) or via run_chunks for one chunk at a time.
 # ----------------------------
 def run_pipeline(
     cfg: dict,
@@ -652,7 +597,6 @@ def run_pipeline(
     frame_end: int | None = None,
     force_run_dir: Path | None = None,
 ) -> Path:
-    # ---------- config ----------
     video_dir = Path(cfg["data"]["video_dir"]).resolve()
     output_root = Path(cfg["data"]["output_root"]).resolve()
 
@@ -664,44 +608,29 @@ def run_pipeline(
 
     ds_factor = int(cfg["run"].get("downsample", 1))
 
-    # ---------- class selection ----------
-    # track[]: classes that go through Stages 2-3 (full tracking).
-    # segment_only[]: classes that get a per-frame mask but no track IDs.
     yolo_cfg = cfg["yolo"]
     classes_cfg = (yolo_cfg.get("classes") or {})
     track_classes = list(map(int, classes_cfg.get("track", []))) if isinstance(classes_cfg, dict) else []
     segment_only_classes = list(map(int, classes_cfg.get("segment_only", []))) if isinstance(classes_cfg, dict) else []
 
-    # Back-compat: old configs used yolo.cls_id with a single class.
     if not track_classes and "classes" not in yolo_cfg:
         track_classes = [int(yolo_cfg.get("cls_id", 0))]
         segment_only_classes = []
 
     classes_to_segment = sorted(set(track_classes) | set(segment_only_classes))
-    print(f"[config] track_classes={track_classes} segment_only_classes={segment_only_classes} seg_union={classes_to_segment}")
 
-    # ---------- frames ----------
     frame_names_all = load_frame_names(str(video_dir))
     assert len(frame_names_all) > 0, f"No frames (.jpg) found in {video_dir}"
 
-    if ds_factor != 1 and (frame_start is not None or frame_end is not None):
-        print("[WARN] Using ranges with downsample>1 can desync tracker indices. Prefer run.downsample=1.")
-
     frame_names_ds = frame_names_all if ds_factor <= 1 else _downsample_names(frame_names_all, ds_factor)
-
     total_len = len(frame_names_ds)
     fs = 0 if frame_start is None else int(frame_start)
     fe = (total_len - 1) if frame_end is None else int(frame_end)
-    assert 0 <= fs <= fe < total_len, f"Invalid range: fs={fs}, fe={fe}, total={total_len}"
     frame_names = frame_names_ds[fs: fe + 1]
-
     offset = fs
-    print(f"[plan] Processing frames [{fs}, {fe}] (len={len(frame_names)}). offset={offset}")
 
-    # Image size taken from the first frame (assumes the whole sequence is uniform).
     W, H = Image.open(video_dir / frame_names[0]).size
 
-    # ---------- EfficientTAM ----------
     etam = EfficientTAMTracker(
         cfg_path=cfg["efficienttam"]["cfg"],
         ckpt_path=cfg["efficienttam"]["ckpt"],
@@ -709,13 +638,10 @@ def run_pipeline(
     )
     etam.init(str(video_dir))
 
-    # ---------- Stage 1 ----------
     boxes_by_f_by_cls, indep_by_f_by_cls, t1 = stage1_detect_and_segment(
         cfg, str(video_dir), frame_names, H, W, etam=etam, offset=offset, classes_to_segment=classes_to_segment
     )
-    print(f"[Stage 1] done in {t1:.2f}s")
 
-    # Gather seg-only coords for the JSON dump consumed by run_chunks.
     segonly_coords: Dict[int, List[MaskCoords]] = {}
     if len(segment_only_classes) > 0:
         for fi in range(len(frame_names)):
@@ -730,15 +656,11 @@ def run_pipeline(
             if lst:
                 segonly_coords[fi] = lst
 
-    # Compatibility JSON consumed by run_chunks (drop once run_chunks reads parquet).
     with open(run_dir / "segonly_by_frame.json", "w") as f:
         json.dump({str(fi): [[ys.tolist(), xs.tolist()] for (ys, xs) in lst] for fi, lst in segonly_coords.items()}, f, indent=2)
 
-    # ---------- Stage-1-only early exit ----------
-    # Triggered by run.stage1_only=true OR when there is nothing to track.
     stage1_only_flag = bool(cfg.get("run", {}).get("stage1_only", False))
     if stage1_only_flag or (len(track_classes) == 0):
-        # Still write metadata so downstream tools don't crash.
         frames_meta = {
             "image_size": {"W": int(W), "H": int(H)},
             "offset": int(offset),
@@ -748,11 +670,8 @@ def run_pipeline(
         }
         with open(run_dir / "frames_meta.json", "w") as f:
             json.dump(frames_meta, f, indent=2)
-        print("[Stage 1] Only: wrote frames_meta.json and segonly_by_frame.json")
         return run_dir
 
-    # ---------- flatten Stage 1 output for the single tracked class ----------
-    # Stages 2-3 are written for one tracked class at a time; pick the first.
     track_cls = int(track_classes[0])
 
     boxes_by_f: Dict[int, np.ndarray] = {
@@ -764,26 +683,18 @@ def run_pipeline(
         e = indep_by_f_by_cls.get(fi, {}).get(track_cls, {"mask_ids": {}, "boxes": np.zeros((0, 4), np.float32)})
         indep_masks[fi] = {"mask_ids": dict(e["mask_ids"]), "boxes": e["boxes"]}
 
-    # ---------- Stage 2 ----------
-    # "propagate" is the paper's bidirectional version; "forward_iou" is the
-    # cheaper forward-only variant. Frame ranges desync the propagator state,
-    # so when the user passes --frame-start/--frame-end we recommend forward_iou.
     stage2_mode = str(cfg["stage2"].get("mode", "propagate")).lower()
-    if (frame_start is not None or frame_end is not None) and stage2_mode != "forward_iou":
-        print("[WARN] With a frame range, prefer stage2.mode='forward_iou' to avoid index drift.")
-
     if stage2_mode == "forward_iou":
         boxes_filt, masks_filt, t2 = stage2_temporal_filter_forward_iou(cfg, boxes_by_f, indep_masks, H, W)
     else:
         boxes_filt, masks_filt, t2 = stage2_temporal_filter(cfg, etam, boxes_by_f, indep_masks, H, W)
-    print(f"[Stage 2] ({stage2_mode}) done in {t2:.2f}s")
 
-    # ---------- Stage 3 ----------
     T, t3 = stage3_track_and_discover(cfg, etam, frame_names, boxes_filt, masks_filt, H, W, offset=offset)
-    print(f"[Stage 3] done in {t3:.2f}s")
 
-    # ---------- experiment logging ----------
+    # BENCHMARK FRAMEWORK: Inject benchmark metadata if present in config
+    benchmark_meta = cfg.get("benchmark_meta", {})
     experiment_log_dir = Path(cfg.get("stage3", {}).get("experiment_log_dir", "experiment_logs"))
+    
     full_run_log = {
         "stage1_runtime": t1,
         "stage2_runtime": t2,
@@ -793,6 +704,10 @@ def run_pipeline(
         "frame_count": len(frame_names),
         "offset": int(offset),
         "device": str(cfg["run"].get("device", "auto")),
+        "benchmark_mode": bool(benchmark_meta),
+        "benchmark_category": benchmark_meta.get("category", "N/A"),
+        "benchmark_interval": benchmark_meta.get("interval_id", "N/A"),
+        "benchmark_manual_count": benchmark_meta.get("manual_count", -1),
         "gpu": _get_gpu_memory_info(),
         "config": {
             "stage2_mode": cfg["stage2"].get("mode", "forward_iou"),
@@ -800,18 +715,8 @@ def run_pipeline(
             "yolo": {"conf": cfg["yolo"].get("conf"), "iou": cfg["yolo"].get("iou")},
         },
     }
-    previous_run = _load_last_experiment_log(output_root / experiment_log_dir)
-    log_path = _save_experiment_log(output_root / experiment_log_dir, full_run_log)
-    print(f"[Experiment] run log written to {log_path}")
-    if previous_run is not None and previous_run.get("total_runtime") is not None:
-        baseline_total = previous_run["total_runtime"]
-        speedup_total = baseline_total / full_run_log["total_runtime"] if full_run_log["total_runtime"] > 0 else 0.0
-        print(
-            f"[Experiment] baseline_total={baseline_total:.2f}s optimized_total={full_run_log['total_runtime']:.2f}s "
-            f"speedup={speedup_total:.2f}x droplet_delta={len(T) - previous_run.get('droplet_count', 0)}"
-        )
+    _save_experiment_log(output_root / experiment_log_dir, full_run_log)
 
-    # ---------- outputs: parquet + meta (overlays are handled by tools/) ----------
     frames_meta = {
         "image_size": {"W": int(W), "H": int(H)},
         "offset": int(offset),
@@ -822,7 +727,6 @@ def run_pipeline(
     with open(run_dir / "frames_meta.json", "w") as f:
         json.dump(frames_meta, f, indent=2)
 
-    # tracks.parquet: one row per (frame, tracked_id), plus centroid/bbox/mask_px.
     try:
         import pyarrow as pa
         import pyarrow.parquet as pq
@@ -832,18 +736,10 @@ def run_pipeline(
         ) from e
 
     track_rows = {
-        "abs_frame": [],
-        "rel_frame": [],
-        "global_id": [],
-        "class_id": [],
-        "area_px": [],
-        "centroid_x": [],
-        "centroid_y": [],
-        "bbox_x0": [],
-        "bbox_y0": [],
-        "bbox_x1": [],
-        "bbox_y1": [],
-        "mask_px": [],  # list<int32> with flattened indices
+        "abs_frame": [], "rel_frame": [], "global_id": [], "class_id": [],
+        "area_px": [], "centroid_x": [], "centroid_y": [],
+        "bbox_x0": [], "bbox_y0": [], "bbox_x1": [], "bbox_y1": [],
+        "mask_px": [],
     }
 
     N = len(frame_names)
@@ -874,53 +770,31 @@ def run_pipeline(
             track_rows["mask_px"].append(px_flat)
 
     if len(track_rows["abs_frame"]) > 0:
-        # mask_px is a list<int32> of flat (y*W + x) indices per row.
         schema = pa.schema([
-            pa.field("abs_frame", pa.int32()),
-            pa.field("rel_frame", pa.int32()),
-            pa.field("global_id", pa.int32()),
-            pa.field("class_id", pa.int16()),
-            pa.field("area_px", pa.int32()),
-            pa.field("centroid_x", pa.float32()),
-            pa.field("centroid_y", pa.float32()),
-            pa.field("bbox_x0", pa.float32()),
-            pa.field("bbox_y0", pa.float32()),
-            pa.field("bbox_x1", pa.float32()),
-            pa.field("bbox_y1", pa.float32()),
+            pa.field("abs_frame", pa.int32()), pa.field("rel_frame", pa.int32()),
+            pa.field("global_id", pa.int32()), pa.field("class_id", pa.int16()),
+            pa.field("area_px", pa.int32()), pa.field("centroid_x", pa.float32()), pa.field("centroid_y", pa.float32()),
+            pa.field("bbox_x0", pa.float32()), pa.field("bbox_y0", pa.float32()),
+            pa.field("bbox_x1", pa.float32()), pa.field("bbox_y1", pa.float32()),
             pa.field("mask_px", pa.list_(pa.int32())),
         ])
-
         table = pa.Table.from_pydict(track_rows, schema=schema)
         pq.write_table(table, run_dir / "tracks.parquet")
-        print(f"[Parquet] wrote {len(track_rows['abs_frame'])} rows to {run_dir/'tracks.parquet'}")
-    else:
-        print("[Parquet] no tracks to write (empty)")
 
-    # segonly.parquet (only written when segment_only classes exist).
     seg_rows = {
-        "abs_frame": [],
-        "rel_frame": [],
-        "local_id": [],    # local id per frame
-        "class_id": [],
-        "area_px": [],
-        "centroid_x": [],
-        "centroid_y": [],
-        "bbox_x0": [],
-        "bbox_y0": [],
-        "bbox_x1": [],
-        "bbox_y1": [],
+        "abs_frame": [], "rel_frame": [], "local_id": [], "class_id": [],
+        "area_px": [], "centroid_x": [], "centroid_y": [],
+        "bbox_x0": [], "bbox_y0": [], "bbox_x1": [], "bbox_y1": [],
         "mask_px": [],
     }
 
     if len(segment_only_classes) > 0:
         for fi in range(N):
-            # local_id is assigned in deterministic order so reruns stay reproducible.
             local_counter = 0
             for cls_id in segment_only_classes:
                 entry = indep_by_f_by_cls.get(fi, {}).get(int(cls_id), None)
                 if not entry:
                     continue
-                # order by mask_ids key to have deterministic local_ids
                 for _, coords in sorted(entry.get("mask_ids", {}).items(), key=lambda kv: kv[0]):
                     ys, xs = coords
                     if xs.size == 0:
@@ -945,32 +819,20 @@ def run_pipeline(
                     seg_rows["bbox_x1"].append(float(bbox[2]))
                     seg_rows["bbox_y1"].append(float(bbox[3]))
                     seg_rows["mask_px"].append(px_flat)
-
                     local_counter += 1
 
         if len(seg_rows["abs_frame"]) > 0:
             seg_schema = pa.schema([
-                pa.field("abs_frame", pa.int32()),
-                pa.field("rel_frame", pa.int32()),
-                pa.field("local_id", pa.int32()),
-                pa.field("class_id", pa.int16()),
-                pa.field("area_px", pa.int32()),
-                pa.field("centroid_x", pa.float32()),
-                pa.field("centroid_y", pa.float32()),
-                pa.field("bbox_x0", pa.float32()),
-                pa.field("bbox_y0", pa.float32()),
-                pa.field("bbox_x1", pa.float32()),
-                pa.field("bbox_y1", pa.float32()),
+                pa.field("abs_frame", pa.int32()), pa.field("rel_frame", pa.int32()),
+                pa.field("local_id", pa.int32()), pa.field("class_id", pa.int16()),
+                pa.field("area_px", pa.int32()), pa.field("centroid_x", pa.float32()), pa.field("centroid_y", pa.float32()),
+                pa.field("bbox_x0", pa.float32()), pa.field("bbox_y0", pa.float32()),
+                pa.field("bbox_x1", pa.float32()), pa.field("bbox_y1", pa.float32()),
                 pa.field("mask_px", pa.list_(pa.int32())),
             ])
             seg_table = pa.Table.from_pydict(seg_rows, schema=seg_schema)
             pq.write_table(seg_table, run_dir / "segonly.parquet")
-            print(f"[Parquet] wrote {len(seg_rows['abs_frame'])} rows to {run_dir/'segonly.parquet'}")
-        else:
-            print("[Parquet] no seg-only rows to write")
 
-    # ---------- compatibility artifacts ----------
-    # run_chunks still reads T.json for stitching; trajectories.csv is for adhoc inspection.
     save_T_json(T, run_dir / "T.json")
     save_trajectory_csv(T, run_dir / "trajectories.csv")
 
