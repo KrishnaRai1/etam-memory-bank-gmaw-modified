@@ -1,7 +1,7 @@
 # End-to-end orchestrator:
 #   run_chunks (or run_pipeline) -> postprocess -> count -> render -> mp4
 from __future__ import annotations
-import argparse, yaml, sys, subprocess
+import argparse, yaml, sys, subprocess, copy, os, tempfile
 from pathlib import Path
 from typing import Optional
 from .pipeline import run_pipeline
@@ -56,6 +56,8 @@ def main():
     with open(cfg_path, "r") as f:
         cfg = yaml.safe_load(f) or {}
 
+    print("[DEBUG] main cfg memory_update_skip =", cfg.get("stage2", {}).get("memory_update_skip", 1))
+
     # YAML paths are resolved against the repo root, not the configs/ folder.
     data = cfg.get("data", {}) or {}
     video_dir = _resolve_rel(data.get("video_dir", "./videos"), repo_root).expanduser().resolve()
@@ -67,6 +69,12 @@ def main():
 
     # 0) core pipeline (chunked when parallel.strategy is set)
     if use_chunks:
+        runtime_cfg_path = Path(tempfile.gettempdir()) / f"etam_runtime_cfg_{os.getpid()}.yaml"
+        with open(runtime_cfg_path, "w", encoding="utf-8") as f:
+            yaml.safe_dump(copy.deepcopy(cfg), f, sort_keys=False)
+        print("[DEBUG] chunk runner cfg path =", runtime_cfg_path)
+        print("[DEBUG] chunk runner memory_update_skip =", cfg.get("stage2", {}).get("memory_update_skip", 1))
+        cfg_path = runtime_cfg_path
         _run([sys.executable, "-m", "src.run_chunks", "--cfg", str(cfg_path)])
         final_dir = _find_latest_final_dir(output_root)
         assert final_dir and final_dir.exists(), f"Could not locate final/ under {output_root}"

@@ -156,6 +156,8 @@ def _worker_run(cfg: dict, chunk_idx: int, gpu_visible: str | None,
 
     # Deep-copy cfg via json so we can mutate it locally without affecting the parent.
     cfg2 = json.loads(json.dumps(cfg))
+    print("[DEBUG] run_chunks received memory_update_skip =", cfg.get("stage2", {}).get("memory_update_skip", 1))
+    print("[DEBUG] run_chunks cfg2 memory_update_skip =", cfg2.get("stage2", {}).get("memory_update_skip", 1))
     cfg2["data"]["output_root"] = str(ch_dir)
     cfg2["data"]["video_dir"] = str(frames_dir)
     cfg2.setdefault("run", {})

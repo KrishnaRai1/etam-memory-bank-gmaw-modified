@@ -649,6 +649,7 @@ class EfficientTAMVideoPredictor(EfficientTAMBase):
                         )
                     if perf_stats is not None:
                         perf_stats["cache_hits"] += 1
+                        print("[DEBUG] predictor cache_hits += 1 ->", perf_stats["cache_hits"])
                 elif frame_idx in obj_output_dict["non_cond_frame_outputs"]:
                     storage_key = "non_cond_frame_outputs"
                     current_out = obj_output_dict[storage_key][frame_idx]
@@ -657,6 +658,7 @@ class EfficientTAMVideoPredictor(EfficientTAMBase):
                     # CACHE: reuse previously computed non-conditioning outputs instead of recomputing.
                     if perf_stats is not None:
                         perf_stats["cache_hits"] += 1
+                        print("[DEBUG] predictor cache_hits += 1 ->", perf_stats["cache_hits"])
                 else:
                     storage_key = "non_cond_frame_outputs"
                     # RESEARCH MOD: skip memory encoding on frames that aren't multiples of memory_update_skip
@@ -682,6 +684,8 @@ class EfficientTAMVideoPredictor(EfficientTAMBase):
                     if perf_stats is not None:
                         perf_stats["cache_misses"] += 1
                         perf_stats["computed_frames"] += 1
+                        print("[DEBUG] predictor cache_misses += 1 ->", perf_stats["cache_misses"])
+                        print("[DEBUG] predictor computed_frames += 1 ->", perf_stats["computed_frames"])
 
                 inference_state["frames_tracked_per_obj"][obj_idx][frame_idx] = {
                     "reverse": reverse
@@ -692,6 +696,7 @@ class EfficientTAMVideoPredictor(EfficientTAMBase):
 
             if perf_stats is not None:
                 perf_stats["propagated_frames"] += 1
+                print("[DEBUG] predictor propagated_frames += 1 ->", perf_stats["propagated_frames"])
 
             # upsample to original resolution
             if len(pred_masks_per_obj) > 1:

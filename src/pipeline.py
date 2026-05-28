@@ -440,11 +440,9 @@ def stage3_track_and_discover(
     progress = bool(cfg_stage3.get("progress", True))
     reuse_outputs = bool(cfg_stage3.get("reuse_existing_outputs", True))
 
-    memory_update_skip = cfg.get("stage2", {}).get(
-        "memory_update_skip",
-        1
-    )
+    memory_update_skip = int(cfg.get("stage2", {}).get("memory_update_skip", 1))
 
+    print("[DEBUG] stage3 received memory_update_skip =", memory_update_skip)
     print("\n========== MEMORY CONFIG DEBUG ==========")
     print(f"memory_update_skip = {memory_update_skip}")
     print("=========================================\n")
@@ -494,6 +492,7 @@ def stage3_track_and_discover(
     def _consume_propagate(start_frame_local: int):
 
         prop_perf["propagation_calls"] += 1
+        print("[DEBUG] increment propagation_calls ->", prop_perf["propagation_calls"])
 
         for f_abs, ids, logits in etam.propagate(
             perf_stats=prop_perf,
@@ -512,6 +511,7 @@ def stage3_track_and_discover(
                 continue
 
             prop_perf["propagated_frames"] += 1
+            print("[DEBUG] increment propagated_frames ->", prop_perf["propagated_frames"])
 
             for k, oid in enumerate(ids):
 
@@ -811,6 +811,10 @@ def run_pipeline(
             "yolo": {"conf": cfg["yolo"].get("conf"), "iou": cfg["yolo"].get("iou")},
         },
     }
+    print("[DEBUG] final full_run_log memory_update_skip =", full_run_log.get("memory_update_skip"))
+    print("[DEBUG] final full_run_log stage3_cache_hits =", full_run_log.get("stage3_cache_hits"))
+    print("[DEBUG] final full_run_log stage3_propagation_calls =", full_run_log.get("stage3_propagation_calls"))
+    print("[DEBUG] final full_run_log runtime_per_frame =", full_run_log.get("runtime_per_frame"))
     print("[DEBUG] Saving experiment log...")
     print("[DEBUG] experiment_log_dir =", experiment_log_dir)
     _save_experiment_log(experiment_log_dir, full_run_log)
