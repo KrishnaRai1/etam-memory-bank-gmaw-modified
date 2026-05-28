@@ -574,7 +574,17 @@ class EfficientTAMBase(torch.nn.Module):
                     continue  # skip padding frames
                 # "maskmem_features" might have been offloaded to CPU in demo use cases,
                 # so we load it back to GPU (it's a no-op if it's already on GPU).
-                feats = prev["maskmem_features"].to(device, non_blocking=True)
+                # SAFE MEMORY FEATURE HANDLING
+                if (
+                    prev.get("maskmem_features", None) is None
+                    or prev.get("maskmem_pos_enc", None) is None
+                ):
+                    continue
+
+                feats = prev["maskmem_features"].to(
+                    device,
+                    non_blocking=True
+                )
                 to_cat_memory.append(feats.flatten(2).permute(2, 0, 1))
                 # Spatial positional encoding (it might have been offloaded to CPU in eval)
                 maskmem_enc = prev["maskmem_pos_enc"][-1].to(device)
