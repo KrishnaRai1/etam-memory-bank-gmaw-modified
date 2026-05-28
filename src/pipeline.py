@@ -669,29 +669,7 @@ def stage3_track_and_discover(
     print(f"New seeds         : {discovery_stats['new_seeds']}")
 
     print("====================================\n")
-
-    if profiling:
-
-        perf_dict = {
-            "stage3_runtime": t3,
-            "memory_update_skip": memory_update_skip,
-            "stage3_candidates_frames": discovery_stats["candidate_frames"],
-            "stage3_candidates_seen": discovery_stats["candidates_seen"],
-            "stage3_new_seeds": discovery_stats["new_seeds"],
-            "stage3_skipped_frames": discovery_stats["frames_skipped_by_max_skip"],
-            "stage3_propagation_calls": prop_perf["propagation_calls"],
-            "stage3_propagated_frames": prop_perf["propagated_frames"],
-            "stage3_computed_frames": prop_perf["computed_frames"],
-            "stage3_cache_hits": prop_perf["cache_hits"],
-            "stage3_cache_misses": prop_perf["cache_misses"],
-            "stage3_objects_processed": prop_perf["objects_processed"],
-            "gpu": _get_gpu_memory_info(),
-            "frame_count": N,
-            "object_count": len(T),
-        }
-
-        _save_experiment_log(log_dir, perf_dict)
-
+    
     return T, t3, prop_perf, discovery_stats
 
 
@@ -843,7 +821,10 @@ def run_pipeline(
             "yolo": {"conf": cfg["yolo"].get("conf"), "iou": cfg["yolo"].get("iou")},
         },
     }
-    _save_experiment_log(output_root / experiment_log_dir, full_run_log)
+    _save_experiment_log(
+            experiment_log_dir,
+            full_run_log
+        )
 
     frames_meta = {
         "image_size": {"W": int(W), "H": int(H)},
