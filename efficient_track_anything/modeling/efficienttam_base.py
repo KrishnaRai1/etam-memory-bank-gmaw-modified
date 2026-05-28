@@ -572,15 +572,14 @@ class EfficientTAMBase(torch.nn.Module):
             for t_pos, prev in t_pos_and_prevs:
                 if prev is None:
                     continue  # skip padding frames
-                # "maskmem_features" might have been offloaded to CPU in demo use cases,
-                # so we load it back to GPU (it's a no-op if it's already on GPU).
-                # SAFE MEMORY FEATURE HANDLING
                 if (
                     prev.get("maskmem_features", None) is None
                     or prev.get("maskmem_pos_enc", None) is None
                 ):
                     continue
 
+                # "maskmem_features" might have been offloaded to CPU in demo use cases,
+                # so we load it back to GPU (it's a no-op if it's already on GPU).
                 feats = prev["maskmem_features"].to(
                     device,
                     non_blocking=True

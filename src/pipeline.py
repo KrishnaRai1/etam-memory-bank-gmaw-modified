@@ -779,33 +779,23 @@ def run_pipeline(
     # BENCHMARK FRAMEWORK: Inject benchmark metadata if present in config
     benchmark_meta = cfg.get("benchmark_meta", {})
     experiment_log_dir = Path(cfg.get("stage3", {}).get("experiment_log_dir", "experiment_logs"))
-    
+    if not experiment_log_dir.is_absolute():
+        experiment_log_dir = run_dir / experiment_log_dir
+
     full_run_log = {
-        "stage1_runtime": t1,
-        "stage2_runtime": t2,
-        "stage3_runtime": t3,
-        "total_runtime": t1 + t2 + t3,
-        "memory_update_skip":
-            cfg.get("stage2", {}).get(
-                    "memory_update_skip",
-                    1
-                ),
-        "runtime_per_frame":
-            (t1 + t2 + t3) / max(len(frame_names), 1),
-        "stage3_propagation_calls":
-            prop_perf["propagation_calls"],
-        "stage3_propagated_frames":
-            prop_perf["propagated_frames"],
-        "stage3_computed_frames":
-            prop_perf["computed_frames"],
-        "stage3_cache_hits":
-            prop_perf["cache_hits"],
-        "stage3_cache_misses":
-            prop_perf["cache_misses"],
-        "stage3_objects_processed":
-            prop_perf["objects_processed"],
-        "stage3_new_seeds":
-            discovery_stats["new_seeds"],
+        "stage1_runtime": float(t1),
+        "stage2_runtime": float(t2),
+        "stage3_runtime": float(t3),
+        "total_runtime": float(t1 + t2 + t3),
+        "memory_update_skip": int(cfg.get("stage2", {}).get("memory_update_skip", 1)),
+        "runtime_per_frame": float((t1 + t2 + t3) / max(len(frame_names), 1)),
+        "stage3_propagation_calls": int(prop_perf.get("propagation_calls", 0)),
+        "stage3_propagated_frames": int(prop_perf.get("propagated_frames", 0)),
+        "stage3_computed_frames": int(prop_perf.get("computed_frames", 0)),
+        "stage3_cache_hits": int(prop_perf.get("cache_hits", 0)),
+        "stage3_cache_misses": int(prop_perf.get("cache_misses", 0)),
+        "stage3_objects_processed": int(prop_perf.get("objects_processed", 0)),
+        "stage3_new_seeds": int(discovery_stats.get("new_seeds", 0)),
         "droplet_count": len(T),
         "frame_count": len(frame_names),
         "offset": int(offset),
@@ -821,10 +811,10 @@ def run_pipeline(
             "yolo": {"conf": cfg["yolo"].get("conf"), "iou": cfg["yolo"].get("iou")},
         },
     }
-    _save_experiment_log(
-            experiment_log_dir,
-            full_run_log
-        )
+    print("[DEBUG] Saving experiment log...")
+    print("[DEBUG] experiment_log_dir =", experiment_log_dir)
+    _save_experiment_log(experiment_log_dir, full_run_log)
+    print("[DEBUG] Experiment log saved successfully")
 
     frames_meta = {
         "image_size": {"W": int(W), "H": int(H)},
