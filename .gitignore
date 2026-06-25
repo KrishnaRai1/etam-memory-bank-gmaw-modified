@@ -1,3 +1,7 @@
+# Python cache
+__pycache__/
+*.py[cod]
+
 # Models
 efficient_track_anything/checkpoints/
 yolov11x/
