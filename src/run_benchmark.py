@@ -1,140 +1,462 @@
-import yaml
+import argparse
+import copy
 import json
-import csv
+import shutil
+import tempfile
 from collections import Counter
 from pathlib import Path
-from tqdm import tqdm
-from src.pipeline import run_pipeline
+from typing import Any
 
-def export_runtime_summary(log_data_list: list[dict], out_dir: Path):
-    """Generates an aggregated Markdown report and CSV for benchmark evaluation."""
-    out_dir.mkdir(parents=True, exist_ok=True)
-    
-    # Export CSV
-    csv_path = out_dir / "benchmark_evaluation_summary.csv"
-    headers = [
-        "interval_id", "category", "frame_count", "system_droplet_count", 
-        "manual_count", "count_delta", "total_runtime_sec", "stage3_runtime_sec"
+import pandas as pd
+import yaml
+from tqdm import tqdm
+
+from src.benchmark.count_metrics import compute_count_metrics, save_count_metrics
+from src.benchmark.mask_metrics import compute_mask_metrics, save_mask_metrics
+from src.benchmark.reference_loader import load_seg_masks, load_tracks_clean
+from src.benchmark.track_metrics import compute_track_metrics, save_track_metrics
+from src.benchmark.data_validation import validate_reference_dataset, validate_interval_bounds
+from src.benchmark.aggregate_report import generate_report
+from src.benchmark.manual_count_evaluator import evaluate_manual_counts
+from src.benchmark.processed_dataset_loader import discover_processed_dataset, discover_processed_datasets
+import subprocess
+from src.pipeline import run_pipeline
+from src.utils import load_frame_names
+
+
+def _repo_root() -> Path:
+    return Path(__file__).resolve().parents[1]
+
+
+def _load_yaml(path: Path) -> dict[str, Any]:
+    with open(path, "r", encoding="utf-8") as f:
+        return yaml.safe_load(f) or {}
+
+
+def _find_video_frame_dir(base_video_dir: Path, video_id: str) -> Path | None:
+    candidates = [
+        base_video_dir,
+        base_video_dir / video_id,
+        base_video_dir.parent / video_id,
+        _repo_root() / video_id,
+        _repo_root() / "data" / video_id,
+        _repo_root() / "frames" / video_id,
+        _repo_root() / "test_frames" / video_id,
+        _repo_root() / "outputs" / video_id,
     ]
-    
-    with open(csv_path, 'w', newline='') as f:
+
+    seen: set[Path] = set()
+    for candidate in candidates:
+        try:
+            resolved = candidate.resolve(strict=False)
+        except Exception:
+            continue
+        if resolved in seen:
+            continue
+        seen.add(resolved)
+        has_frames = resolved.exists() and (
+            any(resolved.glob("*.jpg")) or any(resolved.glob("*.jpeg")) or any(resolved.glob("*.png"))
+        )
+        if has_frames:
+            return resolved
+
+    if base_video_dir.exists() and base_video_dir.is_dir():
+        for child in base_video_dir.iterdir():
+            has_frames = child.is_dir() and child.name == video_id and (
+                any(child.glob("*.jpg")) or any(child.glob("*.jpeg")) or any(child.glob("*.png"))
+            )
+            if has_frames:
+                return child
+
+    return None
+
+
+def _extract_interval_frames(source_dir: Path, interval: dict[str, Any], temp_dir: Path) -> Path:
+    frame_names = load_frame_names(str(source_dir))
+    if not frame_names:
+        raise FileNotFoundError(f"No frame files found in {source_dir}")
+
+    start_frame = int(interval["start_frame"])
+    end_frame = int(interval["end_frame"])
+    pad = 2
+    safe_start = max(0, start_frame - pad)
+    safe_end = max(safe_start, end_frame + pad)
+
+    selected = frame_names[safe_start:safe_end + 1]
+    if not selected:
+        raise ValueError(f"No frames selected for interval {interval.get('interval_id')}")
+
+    temp_dir.mkdir(parents=True, exist_ok=True)
+    for index, frame_name in enumerate(selected, start=1):
+        src = source_dir / frame_name
+        dst = temp_dir / f"{index:06d}{src.suffix}"
+        shutil.copy2(src, dst)
+    return temp_dir
+
+
+def _filter_benchmarks(benchmarks: dict[str, list[dict[str, Any]]], category: str | None, video_id: str | None, interval_id: str | None) -> dict[str, list[dict[str, Any]]]:
+    filtered: dict[str, list[dict[str, Any]]] = {}
+    for vid, intervals in benchmarks.items():
+        if video_id and vid.lower() != video_id.lower():
+            continue
+        kept = []
+        for interval in intervals:
+            if category and str(interval.get("category", "")).lower() != category.lower():
+                continue
+            if interval_id and str(interval.get("interval_id", "")).lower() != interval_id.lower():
+                continue
+            kept.append(interval)
+        if kept:
+            filtered[vid] = kept
+    return filtered
+
+
+def _write_summary(rows: list[dict[str, Any]], out_dir: Path) -> tuple[Path, Path]:
+    out_dir.mkdir(parents=True, exist_ok=True)
+    csv_path = out_dir / "benchmark_summary.csv"
+    json_path = out_dir / "benchmark_summary.json"
+
+    baseline = min((float(row.get("total_runtime", 0.0) or 0.0) for row in rows if (row.get("total_runtime", 0.0) or 0.0) > 0), default=0.0)
+    for row in rows:
+        runtime = float(row.get("total_runtime", 0.0) or 0.0)
+        row["speedup_vs_baseline"] = round(baseline / runtime, 3) if runtime > 0 and baseline > 0 else 0.0
+
+    with open(csv_path, "w", encoding="utf-8", newline="") as f:
+        headers = [
+            "interval_id", "video_id", "category", "memory_update_skip", "total_runtime", "runtime_per_frame",
+            "stage1_runtime", "stage2_runtime", "stage3_runtime",
+            "cache_hits", "cache_misses", "propagation_calls",
+            "droplet_count", "manual_count", "count_error",
+            "mean_iou", "mean_dice", "avg_centroid_distance", "track_continuity", "speedup_vs_baseline",
+        ]
+        import csv
+
         writer = csv.DictWriter(f, fieldnames=headers)
         writer.writeheader()
-        for log in log_data_list:
-            man_count = log.get("benchmark_manual_count", -1)
-            sys_count = log.get("droplet_count", 0)
-            delta = abs(man_count - sys_count) if man_count != -1 else "N/A"
-            
-            writer.writerow({
-                "interval_id": log.get("benchmark_interval", "unknown"),
-                "category": log.get("benchmark_category", "unknown"),
-                "frame_count": log.get("frame_count", 0),
-                "system_droplet_count": sys_count,
-                "manual_count": man_count if man_count != -1 else "N/A",
-                "count_delta": delta,
-                "total_runtime_sec": round(log.get("total_runtime", 0), 2),
-                "stage3_runtime_sec": round(log.get("stage3_runtime", 0), 2)
-            })
+        for row in rows:
+            writer.writerow({name: row.get(name, "") for name in headers})
 
-    # Export Markdown
-    md_path = out_dir / "benchmark_evaluation_summary.md"
-    categories = Counter([log.get("benchmark_category", "unknown") for log in log_data_list])
+    with open(json_path, "w", encoding="utf-8") as f:
+        json.dump({"benchmark_summary": rows}, f, indent=2, ensure_ascii=False)
+
+    return csv_path, json_path
+
+
+def _resolve_reference_dir(reference_root: str | None, video_id: str) -> Path | None:
+    if reference_root is None:
+        return None
+
+    candidate = Path(reference_root).expanduser().resolve()
+    if not candidate.exists():
+        return None
+
+    discovered = discover_processed_dataset(candidate, video_id=video_id)
+    if discovered.get("reference_dir"):
+        resolved = Path(discovered["reference_dir"])
+        if resolved.exists():
+            return resolved
+
+    if candidate.is_dir() and (candidate / f"{video_id}_data").exists():
+        candidate = candidate / f"{video_id}_data"
+    elif candidate.is_dir() and candidate.name.lower().endswith("_data"):
+        pass
+    elif (candidate / video_id).exists() and (candidate / f"{video_id}_data").exists():
+        candidate = candidate / f"{video_id}_data"
+    elif (candidate / video_id).exists() and (candidate / video_id / "tracks_clean.parquet").exists():
+        candidate = candidate / video_id
+    if candidate.exists() and candidate.is_dir():
+        return candidate
+    return None
+
+
+def _load_run_tracks(run_dir: Path) -> pd.DataFrame:
+    for name in ("tracks_clean.parquet", "tracks.parquet", "tracks_merged.parquet"):
+        path = run_dir / name
+        if path.exists():
+            df = pd.read_parquet(path)
+            return df
+    raise FileNotFoundError(f"No track parquet file found in {run_dir}")
+
+
+def _load_run_seg_masks(run_dir: Path) -> pd.DataFrame:
+    for name in ("segonly.parquet", "segonly_merged.parquet"):
+        path = run_dir / name
+        if path.exists():
+            return pd.read_parquet(path)
+    raise FileNotFoundError(f"No segmentation parquet file found in {run_dir}")
+
+
+def _load_frames_meta(run_dir: Path) -> dict[str, Any] | None:
+    meta_path = run_dir / "frames_meta.json"
+    if not meta_path.exists():
+        return None
+    try:
+        return json.loads(meta_path.read_text(encoding="utf-8"))
+    except Exception:
+        return None
+
+
+def execute_benchmarks(
+    pipeline_cfg_path: str,
+    benchmark_yaml_path: str,
+    category: str | None = None,
+    video_id: str | None = None,
+    interval_id: str | None = None,
+    memory_update_skips: list[int] | None = None,
+    reuse_existing_outputs: bool = True,
+    reference_root: str | None = None,
+    dry_run: bool = False,
+) -> dict[str, Any]:
+    base_cfg = _load_yaml(Path(pipeline_cfg_path))
+    benchmark_cfg = _load_yaml(Path(benchmark_yaml_path))
     
-    with open(md_path, 'w') as f:
-        f.write("# Welding Pipeline Benchmark Evaluation\n\n")
-        f.write("## Overview\n")
-        f.write(f"- **Total Difficult Intervals Processed:** {len(log_data_list)}\n")
-        for cat, count in categories.items():
-            f.write(f"  - `{cat}`: {count}\n")
-            
-        f.write("\n## Detailed Results\n")
-        f.write("| Interval ID | Category | Frames | Sys Count | Manual Count | Stage 3 Time (s) |\n")
-        f.write("|-------------|----------|--------|-----------|--------------|------------------|\n")
-        for log in log_data_list:
-            man = log.get("benchmark_manual_count", -1)
-            man_str = str(man) if man != -1 else "N/A"
-            f.write(f"| {log.get('benchmark_interval')} | {log.get('benchmark_category')} | {log.get('frame_count')} | "
-                    f"{log.get('droplet_count')} | {man_str} | {round(log.get('stage3_runtime', 0), 2)} |\n")
-                    
-    print(f"[Benchmark] Generated summary reports at:\n  - {csv_path}\n  - {md_path}")
+    # Auto-detect reference_root from config if not provided via CLI
+    if reference_root is None:
+        reference_root = base_cfg.get("data", {}).get("reference_root")
 
-def execute_benchmarks(pipeline_cfg_path: str, benchmark_yaml_path: str):
-    """
-    Orchestrates the interval-based execution of the tracking pipeline.
-    """
-    with open(pipeline_cfg_path, "r") as f:
-        base_cfg = yaml.safe_load(f)
-        
-    with open(benchmark_yaml_path, "r") as f:
-        benchmarks = yaml.safe_load(f).get("benchmark_cases", {})
+    benchmark_root = Path(base_cfg.get("data", {}).get("output_root", "./outputs")) / "benchmark_summary"
+    benchmark_runs_root = Path(base_cfg.get("data", {}).get("output_root", "./outputs")) / "benchmark_runs"
+    benchmark_runs_root.mkdir(parents=True, exist_ok=True)
 
-    output_root = Path(base_cfg["data"]["output_root"]) / "benchmarks"
-    base_video_dir = Path(base_cfg["data"]["video_dir"])
-    
-    all_metrics = []
+    benchmarks = _filter_benchmarks(benchmark_cfg.get("benchmark_cases", {}), category, video_id, interval_id)
 
-    print(f"[Benchmark] Initiating evaluation for {len(benchmarks)} videos...")
+    if not benchmarks:
+        print("[WARN] No benchmark intervals matched the requested filters.")
+        return {"rows": [], "summary_csv": None, "summary_json": None}
 
-    for video_id, intervals in benchmarks.items():
-        # Resolve the specific video directory based on the ID
-        # Assumes frames are stored like: test_frames/AIS26T1/*.jpg
-        video_dir = base_video_dir.parent / video_id
-        if not video_dir.exists():
-            print(f"[WARN] Video directory {video_dir} not found. Skipping {video_id}.")
+    output_root = Path(base_cfg.get("data", {}).get("output_root", "./outputs"))
+    benchmark_root = output_root / "benchmark_summary"
+    benchmark_runs_root = output_root / "benchmark_runs"
+    benchmark_runs_root.mkdir(parents=True, exist_ok=True)
+
+    memory_update_skips = memory_update_skips or [1, 3, 5]
+    rows: list[dict[str, Any]] = []
+
+    discovered_datasets = discover_processed_datasets(reference_root) if reference_root else []
+    discovered_map = {item["video_id"].lower(): item for item in discovered_datasets if item.get("video_id")}
+    print(f"[Benchmark] Evaluating {sum(len(v) for v in benchmarks.values())} interval(s) across {len(benchmarks)} video(s).")
+    if discovered_datasets:
+        print(f"[Benchmark] Discovered {len(discovered_datasets)} processed datasets under {reference_root}")
+
+    for video_id_name, intervals in tqdm(benchmarks.items(), desc="Benchmark sweeps"):
+        source_dir = _find_video_frame_dir(Path(base_cfg.get("data", {}).get("video_dir", "")), video_id_name)
+        if source_dir is None or not source_dir.exists():
+            print(f"[WARN] No frame directory found for {video_id_name}; skipping this video.")
             continue
-            
-        base_cfg["data"]["video_dir"] = str(video_dir)
 
-        print(f"\n[Benchmark] Processing {video_id} ({len(intervals)} intervals)")
-        
-        for interval in tqdm(intervals, desc=f"Evaluating {video_id}"):
-            interval_id = interval["interval_id"]
-            start_f = interval["start_frame"]
-            end_f = interval["end_frame"]
-            
-            # Pad the interval slightly for Stage 2 temporal IoU stability
-            pad = int(base_cfg.get("stage2", {}).get("window", 5))
-            safe_start = max(0, start_f - pad)
-            
-            # Isolated run directory categorizing the failure mode
-            run_dir = output_root / interval["category"] / interval_id
-            run_dir.mkdir(parents=True, exist_ok=True)
-            
-            # Inject metadata so pipeline.py can log it in experiment_logs
-            base_cfg["benchmark_meta"] = interval
-            
-            try:
-                # Trigger the pipeline on the specific slice
-                out_dir = run_pipeline(
-                    cfg=base_cfg,
-                    frame_start=safe_start,
-                    frame_end=end_f + pad,
-                    force_run_dir=run_dir
-                )
-                
-                # Retrieve the generated experiment log to aggregate stats
-                log_dir = out_dir / base_cfg.get("stage3", {}).get("experiment_log_dir", "experiment_logs")
-                log_files = sorted(log_dir.glob("experiment_*.json"))
-                
-                if log_files:
-                    with open(log_files[-1], 'r') as lf:
-                        metrics = json.load(lf)
-                        all_metrics.append(metrics)
+        # Resolve and validate optional reference dataset for this video
+        resolved_reference_dir = None
+        if reference_root:
+            resolved = _resolve_reference_dir(reference_root, video_id_name)
+            if resolved is None:
+                dataset_info = discovered_map.get(video_id_name.lower())
+                if dataset_info:
+                    print(f"[WARN] Reference directory for {video_id_name} not found under {reference_root}; using discovered dataset {dataset_info.get('reference_dir')}")
+                    resolved = Path(dataset_info["reference_dir"]) if dataset_info.get("reference_dir") else None
                 else:
-                    print(f"[WARN] No experiment log found for {interval_id}.")
-                    
-            except Exception as e:
-                print(f"\n[ERROR] Pipeline execution failed on interval {interval_id}: {str(e)}")
+                    print(f"[WARN] Reference directory for {video_id_name} not found under {reference_root}")
+            if resolved is None:
+                print(f"[WARN] No reference directory available for {video_id_name}")
+            else:
+                vres = validate_reference_dataset(resolved)
+                if not vres.ok:
+                    print(f"[WARN] Reference dataset validation failed for {video_id_name}: {vres.issues}")
+                    resolved = None
+                else:
+                    print(f"[OK] Reference dataset validated for {video_id_name}")
+            resolved_reference_dir = resolved
 
-    print("\n[Benchmark] All intervals processed. Aggregating results...")
-    export_runtime_summary(all_metrics, output_root)
+        for interval in intervals:
+            interval_id_name = interval.get("interval_id", "unknown")
+            print(f"\n[Benchmark] Interval {interval_id_name} ({video_id_name}, {interval.get('category', 'unknown')})")
+
+            for skip_value in memory_update_skips:
+                temp_dir = Path(tempfile.mkdtemp(prefix=f"benchmark_{video_id_name}_{interval_id_name}_", dir=str(benchmark_runs_root)))
+                try:
+                    frame_dir = _extract_interval_frames(source_dir, interval, temp_dir / "frames")
+                    cfg = copy.deepcopy(base_cfg)
+                    cfg["data"]["video_dir"] = str(frame_dir)
+                    cfg["data"]["output_root"] = str(output_root)
+                    cfg["stage2"]["memory_update_skip"] = int(skip_value)
+                    cfg["stage3"]["reuse_existing_outputs"] = bool(reuse_existing_outputs)
+                    cfg["benchmark_meta"] = dict(interval)
+
+                    if dry_run:
+                        print(f"[DRY-RUN] would evaluate {video_id_name}/{interval_id_name} with memory_update_skip={skip_value}")
+                        rows.append({
+                            "interval_id": interval_id_name,
+                            "video_id": video_id_name,
+                            "category": interval.get("category", "unknown"),
+                            "memory_update_skip": skip_value,
+                            "total_runtime": 0.0,
+                            "stage3_runtime": 0.0,
+                            "droplet_count": 0,
+                            "manual_count": interval.get("manual_count", -1),
+                            "propagation_calls": 0,
+                            "cache_hits": 0,
+                            "cache_misses": 0,
+                        })
+                        continue
+
+                    run_dir = benchmark_runs_root / video_id_name / interval_id_name / f"skip_{skip_value}"
+                    run_dir.mkdir(parents=True, exist_ok=True)
+                    out_dir = run_pipeline(cfg=cfg, frame_start=0, frame_end=None, force_run_dir=run_dir)
+                    visual_dir = Path(output_root) / "benchmark_visualizations" / video_id_name / interval_id_name / f"skip_{skip_value}"
+                    visual_dir.mkdir(parents=True, exist_ok=True)
+                    overlays_dir = out_dir / "overlays"
+                    if overlays_dir.exists():
+                        for overlay_file in overlays_dir.glob("*.mp4"):
+                            shutil.copy2(overlay_file, visual_dir / overlay_file.name)
+                    log_dir = out_dir / cfg.get("stage3", {}).get("experiment_log_dir", "experiment_logs")
+                    log_files = sorted(log_dir.glob("experiment_*.json"))
+                    if not log_files:
+                        print(f"[WARN] No experiment log found for {interval_id_name}, skip={skip_value}")
+                        continue
+
+                    with open(log_files[-1], "r", encoding="utf-8") as handle:
+                        metrics = json.load(handle)
+
+                    reference_metrics = {
+                        "mean_iou": None,
+                        "mean_dice": None,
+                        "avg_centroid_distance": None,
+                        "track_continuity": None,
+                    }
+                    if resolved_reference_dir:
+                        try:
+                            predicted_tracks = _load_run_tracks(out_dir)
+                            ref_tracks = load_tracks_clean(resolved_reference_dir)
+                            ref_masks = load_seg_masks(resolved_reference_dir)
+                            frames_meta = _load_frames_meta(out_dir)
+                            width = 0
+                            if frames_meta and isinstance(frames_meta.get("image_size"), dict):
+                                width = int(frames_meta["image_size"].get("W", 0) or 0)
+
+                            count_metrics = compute_count_metrics(ref_tracks, predicted_tracks)
+                            save_count_metrics(count_metrics, out_dir / "count_metrics.json")
+
+                            mask_metrics = compute_mask_metrics(ref_masks, predicted_tracks, width=width)
+                            save_mask_metrics(mask_metrics, out_dir / "mask_metrics.json")
+                            reference_metrics["mean_iou"] = mask_metrics.get("mean_iou")
+                            reference_metrics["mean_dice"] = mask_metrics.get("mean_dice")
+                            reference_metrics["avg_centroid_distance"] = mask_metrics.get("mean_centroid_distance")
+
+                            track_metrics = compute_track_metrics(ref_tracks, predicted_tracks)
+                            save_track_metrics(track_metrics, out_dir / "track_metrics.json")
+                            # track_metrics uses 'avg_centroid_deviation' naming
+                            reference_metrics["avg_centroid_distance"] = reference_metrics.get("avg_centroid_distance") or track_metrics.get("avg_centroid_deviation")
+                            reference_metrics["track_continuity"] = track_metrics.get("track_continuity")
+                        except Exception as exc:
+                            print(f"[WARN] Reference benchmark evaluation failed for {video_id_name}: {exc}")
+
+                    row = {
+                        "interval_id": metrics.get("benchmark_interval", interval_id_name),
+                        "video_id": video_id_name,
+                        "category": metrics.get("benchmark_category", interval.get("category", "unknown")),
+                        "memory_update_skip": int(metrics.get("memory_update_skip", skip_value)),
+                        "total_runtime": float(metrics.get("total_runtime", 0.0) or 0.0),
+                        "stage3_runtime": float(metrics.get("stage3_runtime", 0.0) or 0.0),
+                        "droplet_count": int(metrics.get("droplet_count", 0) or 0),
+                        "manual_count": int(metrics.get("benchmark_manual_count", interval.get("manual_count", -1)) or -1),
+                        "propagation_calls": int(metrics.get("stage3_propagation_calls", 0) or 0),
+                        "cache_hits": int(metrics.get("stage3_cache_hits", 0) or 0),
+                        "cache_misses": int(metrics.get("stage3_cache_misses", 0) or 0),
+                        "mean_iou": reference_metrics["mean_iou"],
+                        "mean_dice": reference_metrics["mean_dice"],
+                        "avg_centroid_distance": reference_metrics["avg_centroid_distance"],
+                        "track_continuity": reference_metrics["track_continuity"],
+                    }
+                    rows.append(row)
+                    # augment with runtime-per-frame and stage runtimes when available
+                    try:
+                        frames_count = max(1, int(interval.get("end_frame", 0)) - int(interval.get("start_frame", 0)) + 1)
+                    except Exception:
+                        frames_count = 1
+                    rows[-1]["runtime_per_frame"] = round(rows[-1]["total_runtime"] / frames_count, 4) if frames_count else None
+                    rows[-1]["stage1_runtime"] = metrics.get("stage1_runtime")
+                    rows[-1]["stage2_runtime"] = metrics.get("stage2_runtime")
+                    rows[-1]["stage3_runtime"] = metrics.get("stage3_runtime") or rows[-1].get("stage3_runtime")
+                    # compute count error against manual_count if available
+                    try:
+                        manual = int(rows[-1].get("manual_count", -1) or -1)
+                        if manual > 0:
+                            rows[-1]["count_error"] = int(rows[-1].get("droplet_count", 0)) - manual
+                        else:
+                            rows[-1]["count_error"] = None
+                    except Exception:
+                        rows[-1]["count_error"] = None
+                    print(f"[OK] Recorded skip={skip_value}, runtime={rows[-1]['total_runtime']:.2f}s")
+                except Exception as exc:
+                    print(f"[ERROR] Failed interval {interval_id_name} with memory_update_skip={skip_value}: {exc}")
+                finally:
+                    shutil.rmtree(temp_dir, ignore_errors=True)
+
+    csv_path, json_path = _write_summary(rows, benchmark_root)
+    print(f"[Benchmark] Summary written to:\n  - {csv_path}\n  - {json_path}")
+
+    # Prepare manual counts: use configs/video_manual_counts.json if present, else try to parse CSV/Excel
+    manual_counts_cfg = Path('configs') / 'video_manual_counts.json'
+    if not manual_counts_cfg.exists():
+        print('[INFO] video_manual_counts.json not found, attempting to parse annotation files...')
+        try:
+            subprocess.run(["python", "tools/parse_manual_counts.py"], check=False)
+        except Exception:
+            print('[WARN] Failed to auto-run parse_manual_counts.py')
+
+    manual_metrics_path = None
+    if manual_counts_cfg.exists():
+        try:
+            manual_metrics_path = evaluate_manual_counts(manual_counts_cfg, output_root=Path(base_cfg.get('data',{}).get('output_root','./outputs')))
+            print(f"[OK] Manual count metrics written to {manual_metrics_path}")
+        except Exception as exc:
+            print(f"[WARN] Manual count evaluation failed: {exc}")
+
+    # Sanity checks and aggregate report
+    try:
+        report_json = generate_report(json_path, benchmark_runs_root, benchmark_root, generate_visuals=True, manual_metrics=manual_metrics_path)
+        print(f"[Benchmark] Aggregated report written to: {report_json}")
+    except Exception as exc:
+        print(f"[WARN] Failed to generate aggregated report: {exc}")
+
+    return {"rows": rows, "summary_csv": csv_path, "summary_json": json_path}
+
+
+def main() -> None:
+    parser = argparse.ArgumentParser(description="Automated benchmark execution for difficult welding intervals.")
+    parser.add_argument("--category", default=None, help="Filter by benchmark category, e.g. id_switches")
+    parser.add_argument("--video-id", default=None, help="Filter by video identifier")
+    parser.add_argument("--interval-id", default=None, help="Filter by interval identifier")
+    parser.add_argument("--memory-update-skip", nargs="+", type=int, default=[1, 3, 5], help="Sweep values for memory_update_skip")
+    parser.add_argument("--reuse-existing-outputs", action="store_true", help="Reuse cached outputs where available")
+    parser.add_argument("--reference-dir", default=None, help="Path to reference dataset root containing *_data directories")
+    parser.add_argument("--dry-run", action="store_true", help="Preview the sweep without executing the pipeline")
+    args = parser.parse_args()
+
+    pipeline_cfg = "configs/pipeline.yaml"
+    benchmark_cfg = "configs/benchmark_cases.yaml"
+
+    if not Path(benchmark_cfg).exists():
+        print(f"[ERROR] {benchmark_cfg} not found. Run tools/benchmark_parser.py first.")
+        return
+
+    print("\nCLI examples:")
+    print("  python -m src.run_benchmark --category id_switches")
+    print("  python -m src.run_benchmark --interval-id AIS26T1_8245_8330")
+    print("  python -m src.run_benchmark --reference-dir /path/to/ALS29T7_data")
+    print("  python -m src.run_benchmark")
+
+    execute_benchmarks(
+        pipeline_cfg,
+        benchmark_cfg,
+        category=args.category,
+        video_id=args.video_id,
+        interval_id=args.interval_id,
+        memory_update_skips=args.memory_update_skip,
+        reuse_existing_outputs=args.reuse_existing_outputs,
+        reference_root=args.reference_dir,
+        dry_run=args.dry_run,
+    )
+
 
 if __name__ == "__main__":
-    PIPELINE_CFG = "configs/pipeline.yaml"
-    BENCHMARK_CFG = "configs/benchmark_cases.yaml"
-    
-    # Ensure the yaml exists first
-    if not Path(BENCHMARK_CFG).exists():
-        print(f"Error: {BENCHMARK_CFG} not found. Run tools/benchmark_parser.py first.")
-    else:
-        execute_benchmarks(PIPELINE_CFG, BENCHMARK_CFG)
+    main()

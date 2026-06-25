@@ -1,0 +1,2364 @@
+{
+  "benchmark_cases": {
+    "AIS26T1": [
+      {
+        "interval_id": "AIS26T1_8245_8330",
+        "start_frame": 8245,
+        "end_frame": 8330,
+        "category": "segmentation_errors",
+        "error_description": "segmentation remaining after the droplet merges into the weld pool",
+        "notes": "red segmentation of droplet despite in weld pool",
+        "manual_count": 20,
+        "system_count": 20
+      }
+    ],
+    "AIS30T02R01": [
+      {
+        "interval_id": "AIS30T02R01_160_180",
+        "start_frame": 160,
+        "end_frame": 180,
+        "category": "segmentation_errors",
+        "error_description": "bad segmentation (on spatter)",
+        "notes": "shouldnt focus on spatter",
+        "manual_count": 96,
+        "system_count": 84
+      },
+      {
+        "interval_id": "AIS30T02R01_500_510",
+        "start_frame": 500,
+        "end_frame": 510,
+        "category": "incorrect_id_assignment",
+        "error_description": "Incorrect ID assigned",
+        "notes": "repeats #5",
+        "manual_count": 147,
+        "system_count": 147
+      },
+      {
+        "interval_id": "AIS30T02R01_1300_1400",
+        "start_frame": 1300,
+        "end_frame": 1400,
+        "category": "incorrect_id_assignment",
+        "error_description": "Incorrect ID assigned on droplet",
+        "notes": "repeats #13 multiple times",
+        "manual_count": 119,
+        "system_count": 63
+      },
+      {
+        "interval_id": "AIS30T02R01_1970_1990",
+        "start_frame": 1970,
+        "end_frame": 1990,
+        "category": "id_switches",
+        "error_description": "ID switch",
+        "notes": "between number 19 and 20",
+        "manual_count": 173,
+        "system_count": 179
+      },
+      {
+        "interval_id": "AIS30T02R01_2570_2580",
+        "start_frame": 2570,
+        "end_frame": 2580,
+        "category": "false_positive_spatter",
+        "error_description": "Incorrect ID assigned on droplet/false droplet",
+        "notes": "both 26 and 27 id on one droplet",
+        "manual_count": 35,
+        "system_count": 34
+      },
+      {
+        "interval_id": "AIS30T02R01_3640_3660",
+        "start_frame": 3640,
+        "end_frame": 3660,
+        "category": "incorrect_id_assignment",
+        "error_description": "Incorrect ID assigned",
+        "notes": "repeats #38",
+        "manual_count": 56,
+        "system_count": 57
+      },
+      {
+        "interval_id": "AIS30T02R01_4375_4385",
+        "start_frame": 4375,
+        "end_frame": 4385,
+        "category": "false_positive_spatter",
+        "error_description": "false droplet id assigned",
+        "notes": "Id number 48 is assigned to a spatter",
+        "manual_count": 179,
+        "system_count": 185
+      },
+      {
+        "interval_id": "AIS30T02R01_4610_4630",
+        "start_frame": 4610,
+        "end_frame": 4630,
+        "category": "segmentation_errors",
+        "error_description": "ID switch",
+        "notes": "on the same droplet when touches weld pool",
+        "manual_count": 147,
+        "system_count": 134
+      },
+      {
+        "interval_id": "AIS30T02R01_6380_6390",
+        "start_frame": 6380,
+        "end_frame": 6390,
+        "category": "segmentation_errors",
+        "error_description": "ID switch/change",
+        "notes": "droplet changes from 69 to 70 before touches weld pool",
+        "manual_count": 165,
+        "system_count": 157
+      },
+      {
+        "interval_id": "AIS30T02R01_7230_7245",
+        "start_frame": 7230,
+        "end_frame": 7245,
+        "category": "segmentation_errors",
+        "error_description": "ID change (after contact weld pool) and id switch with previous",
+        "notes": "when touches weld pool id changes and the droplet behind also changes",
+        "manual_count": 68,
+        "system_count": 72
+      }
+    ],
+    "AIS30T05": [
+      {
+        "interval_id": "AIS30T05_10100_10350",
+        "start_frame": 10100,
+        "end_frame": 10350,
+        "category": "segmentation_errors",
+        "error_description": "Incorrect ID assigned and repeat of #123",
+        "notes": "While #121 drops, it labels small drop near weld pool as #122 and then next big droplet as #123 when it should have been 122 and then repeats 123",
+        "manual_count": 121,
+        "system_count": 116
+      },
+      {
+        "interval_id": "AIS30T05_12450_12470",
+        "start_frame": 12450,
+        "end_frame": 12470,
+        "category": "incorrect_id_assignment",
+        "error_description": "Incorrect ID assigned on last droplet",
+        "notes": "Shows 147 and 148 on the droplet at same time",
+        "manual_count": 177,
+        "system_count": 179
+      }
+    ],
+    "AIS29T7": [
+      {
+        "interval_id": "AIS29T7_385_395",
+        "start_frame": 385,
+        "end_frame": 395,
+        "category": "segmentation_errors",
+        "error_description": "Bad segmentation of Droplet (+1)",
+        "notes": "We can see droplet forms and falls but it never segments it properly and doesnt assign an ID to it after #3",
+        "manual_count": 146,
+        "system_count": 146
+      },
+      {
+        "interval_id": "AIS29T7_1310_1340",
+        "start_frame": 1310,
+        "end_frame": 1340,
+        "category": "segmentation_errors",
+        "error_description": "Bad segmentation of Droplet (+2)",
+        "notes": "We can see droplet forms and falls but it never segments it properly and doesnt assign an ID to it after #11",
+        "manual_count": 119,
+        "system_count": 123
+      },
+      {
+        "interval_id": "AIS29T7_3060_3077",
+        "start_frame": 3060,
+        "end_frame": 3077,
+        "category": "segmentation_errors",
+        "error_description": "Bad segmentation of Droplet (+3)",
+        "notes": "We can see droplet forms and falls but it never segments it properly and doesnt assign an ID to it after #25",
+        "manual_count": 70,
+        "system_count": 71
+      },
+      {
+        "interval_id": "AIS29T7_3860_3870",
+        "start_frame": 3860,
+        "end_frame": 3870,
+        "category": "segmentation_errors",
+        "error_description": "Bad segmentation of Droplet (+4)",
+        "notes": "We can see droplet forms and falls but it never segments it properly and doesnt assign an ID to it after #30",
+        "manual_count": 184,
+        "system_count": 183
+      },
+      {
+        "interval_id": "AIS29T7_3970_3990",
+        "start_frame": 3970,
+        "end_frame": 3990,
+        "category": "segmentation_errors",
+        "error_description": "Bad segmentation of Droplet (+5)",
+        "notes": "We can see droplet forms and falls but it never segments it properly and doesnt assign an ID to it after #30",
+        "manual_count": 125,
+        "system_count": 129
+      },
+      {
+        "interval_id": "AIS29T7_4010_4020",
+        "start_frame": 4010,
+        "end_frame": 4020,
+        "category": "segmentation_errors",
+        "error_description": "Bad segmentation of Droplet (+6)",
+        "notes": "We can see droplet forms and falls but it never segments it properly and doesnt assign an ID to it after #30",
+        "manual_count": 62,
+        "system_count": 63
+      },
+      {
+        "interval_id": "AIS29T7_4580_4650",
+        "start_frame": 4580,
+        "end_frame": 4650,
+        "category": "segmentation_errors",
+        "error_description": "Bad segmentation of Droplet (+7)",
+        "notes": "We can see droplet forms and falls but it never segments it properly and doesnt assign an ID to it after #34",
+        "manual_count": 145,
+        "system_count": 156
+      },
+      {
+        "interval_id": "AIS29T7_5200_5230",
+        "start_frame": 5200,
+        "end_frame": 5230,
+        "category": "segmentation_errors",
+        "error_description": "Bad segmentation of Droplet (+8)",
+        "notes": "We can see droplet forms and falls but it never segments it properly and doesnt assign an ID to it after #37",
+        "manual_count": 101,
+        "system_count": 116
+      },
+      {
+        "interval_id": "AIS29T7_5690_5700",
+        "start_frame": 5690,
+        "end_frame": 5700,
+        "category": "segmentation_errors",
+        "error_description": "Bad segmentation of Droplet (+9)",
+        "notes": "We can see droplet forms and falls but it never segments it properly and doesnt assign an ID to it after #40",
+        "manual_count": 110,
+        "system_count": 121
+      },
+      {
+        "interval_id": "AIS29T7_6000_6030",
+        "start_frame": 6000,
+        "end_frame": 6030,
+        "category": "segmentation_errors",
+        "error_description": "Bad segmentation of Droplet (+10)",
+        "notes": "We can see droplet forms and falls but it never segments it properly and doesnt assign an ID to it after #41",
+        "manual_count": 138,
+        "system_count": 151
+      },
+      {
+        "interval_id": "AIS29T7_6100_6150",
+        "start_frame": 6100,
+        "end_frame": 6150,
+        "category": "segmentation_errors",
+        "error_description": "Bad segmentation of Droplet (+11)",
+        "notes": "We can see droplet forms and falls but it never segments it properly and doesnt assign an ID to it after #41",
+        "manual_count": 132,
+        "system_count": 140
+      },
+      {
+        "interval_id": "AIS29T7_6440_6690",
+        "start_frame": 6440,
+        "end_frame": 6690,
+        "category": "segmentation_errors",
+        "error_description": "Bad segmentation of Droplet (+14) (3 in a row)",
+        "notes": "We can see droplet forms and falls but it never segments it properly and doesnt assign an ID to it after #42 (3 in a row)",
+        "manual_count": -1,
+        "system_count": -1
+      },
+      {
+        "interval_id": "AIS29T7_6940_9750",
+        "start_frame": 6940,
+        "end_frame": 9750,
+        "category": "segmentation_errors",
+        "error_description": "Bad segmentation of Droplet (+36) (22 in a row)",
+        "notes": "We can see droplet forms and falls but it never segments it properly and doesnt assign an ID to it after #43 (22 in a row)",
+        "manual_count": -1,
+        "system_count": -1
+      },
+      {
+        "interval_id": "AIS29T7_9850_10870",
+        "start_frame": 9850,
+        "end_frame": 10870,
+        "category": "segmentation_errors",
+        "error_description": "Bad segmentation of Droplet (+42) (6 in a row)",
+        "notes": "We can see droplet forms and falls but it never segments it properly and doesnt assign an ID to it after #44 (6 in a row)",
+        "manual_count": -1,
+        "system_count": -1
+      },
+      {
+        "interval_id": "AIS29T7_11100_11200",
+        "start_frame": 11100,
+        "end_frame": 11200,
+        "category": "segmentation_errors",
+        "error_description": "Bad segmentation of Droplet (+43)",
+        "notes": "We can see droplet forms and falls but it never segments it properly and doesnt assign an ID to it after #46",
+        "manual_count": -1,
+        "system_count": -1
+      },
+      {
+        "interval_id": "AIS29T7_11000_11050",
+        "start_frame": 11000,
+        "end_frame": 11050,
+        "category": "segmentation_errors",
+        "error_description": "Bad segmentation of Droplet (+44)",
+        "notes": "We can see droplet forms and falls but it never segments it properly and doesnt assign an ID to it after #45",
+        "manual_count": -1,
+        "system_count": -1
+      },
+      {
+        "interval_id": "AIS29T7_11350_11750",
+        "start_frame": 11350,
+        "end_frame": 11750,
+        "category": "segmentation_errors",
+        "error_description": "Bad segmentation of Droplet (+47)",
+        "notes": "We can see droplet forms and falls but it never segments it properly and doesnt assign an ID to it after #47",
+        "manual_count": -1,
+        "system_count": -1
+      },
+      {
+        "interval_id": "AIS29T7_11900_12000",
+        "start_frame": 11900,
+        "end_frame": 12000,
+        "category": "segmentation_errors",
+        "error_description": "Bad segmentation of Droplet (+48)",
+        "notes": "We can see droplet forms and falls but it never segments it properly and doesnt assign an ID to it after #48",
+        "manual_count": -1,
+        "system_count": -1
+      },
+      {
+        "interval_id": "AIS29T7_12200_12400",
+        "start_frame": 12200,
+        "end_frame": 12400,
+        "category": "segmentation_errors",
+        "error_description": "Bad segmentation of Droplet (+49)",
+        "notes": "We can see droplet forms and falls but it never segments it properly and doesnt assign an ID to it after #49",
+        "manual_count": -1,
+        "system_count": -1
+      },
+      {
+        "interval_id": "AIS29T7_12450_12600",
+        "start_frame": 12450,
+        "end_frame": 12600,
+        "category": "segmentation_errors",
+        "error_description": "Bad Segmentation of droplet after contact weldpool",
+        "notes": "segmentation remaining after the droplet merges into the weld pool #50",
+        "manual_count": -1,
+        "system_count": -1
+      },
+      {
+        "interval_id": "AIS29T7_12650_12800",
+        "start_frame": 12650,
+        "end_frame": 12800,
+        "category": "segmentation_errors",
+        "error_description": "Bad segmentation of Droplet (+51)",
+        "notes": "We can see droplet forms and falls but it never segments it properly and doesnt assign an ID to it after #50",
+        "manual_count": -1,
+        "system_count": -1
+      },
+      {
+        "interval_id": "AIS29T7_13200_13500",
+        "start_frame": 13200,
+        "end_frame": 13500,
+        "category": "segmentation_errors",
+        "error_description": "Bad segmentation of Droplet (+52)",
+        "notes": "We can see droplet forms and falls but it never segments it properly and doesnt assign an ID to it after #54",
+        "manual_count": -1,
+        "system_count": -1
+      },
+      {
+        "interval_id": "AIS29T7_13900_14200",
+        "start_frame": 13900,
+        "end_frame": 14200,
+        "category": "segmentation_errors",
+        "error_description": "Bad segmentation of Droplet (+55)",
+        "notes": "We can see droplet forms and falls but it never segments it properly and doesnt assign an ID to it after #57",
+        "manual_count": -1,
+        "system_count": -1
+      },
+      {
+        "interval_id": "AIS29T7_14700_14800",
+        "start_frame": 14700,
+        "end_frame": 14800,
+        "category": "segmentation_errors",
+        "error_description": "Bad segmentation of Droplet (+56)",
+        "notes": "We can see droplet forms and falls but it never segments it properly and doesnt assign an ID to it after #62",
+        "manual_count": -1,
+        "system_count": -1
+      }
+    ],
+    "AIS31T02": [
+      {
+        "interval_id": "AIS31T02_440_460",
+        "start_frame": 440,
+        "end_frame": 460,
+        "category": "false_positive_spatter",
+        "error_description": "false droplet id assigned (-1)",
+        "notes": "#8 was assigned to spatter whcih was false droplet",
+        "manual_count": -1,
+        "system_count": -1
+      },
+      {
+        "interval_id": "AIS31T02_2440_2460",
+        "start_frame": 2440,
+        "end_frame": 2460,
+        "category": "uncategorized",
+        "error_description": "ID change (while dropping on same droplet) (-2)",
+        "notes": "While dropping #35 changes to #36",
+        "manual_count": -1,
+        "system_count": -1
+      },
+      {
+        "interval_id": "AIS31T02_2780_2800",
+        "start_frame": 2780,
+        "end_frame": 2800,
+        "category": "incorrect_id_assignment",
+        "error_description": "Incorrect ID assigned (-1)",
+        "notes": "#40 repeated twice",
+        "manual_count": -1,
+        "system_count": -1
+      },
+      {
+        "interval_id": "AIS31T02_4040_4055",
+        "start_frame": 4040,
+        "end_frame": 4055,
+        "category": "uncategorized",
+        "error_description": "ID change (while dropping on same droplet) (-2)",
+        "notes": "#60 to #61 on same droplet while falling",
+        "manual_count": -1,
+        "system_count": -1
+      },
+      {
+        "interval_id": "AIS31T02_5550_5560",
+        "start_frame": 5550,
+        "end_frame": 5560,
+        "category": "incorrect_id_assignment",
+        "error_description": "Incorrect ID assigned (-3)",
+        "notes": "assigned #83 when should be #82",
+        "manual_count": -1,
+        "system_count": -1
+      },
+      {
+        "interval_id": "AIS31T02_6700_6730",
+        "start_frame": 6700,
+        "end_frame": 6730,
+        "category": "false_positive_spatter",
+        "error_description": "false droplet id assigned (-4)",
+        "notes": "#103 assigned to false droplet",
+        "manual_count": -1,
+        "system_count": -1
+      },
+      {
+        "interval_id": "AIS31T02_7200_7220",
+        "start_frame": 7200,
+        "end_frame": 7220,
+        "category": "false_positive_spatter",
+        "error_description": "false droplet id assigned (-5)",
+        "notes": "#113 assigned to false droplet",
+        "manual_count": -1,
+        "system_count": -1
+      },
+      {
+        "interval_id": "AIS31T02_7780_7790",
+        "start_frame": 7780,
+        "end_frame": 7790,
+        "category": "false_positive_spatter",
+        "error_description": "false droplet id assigned (-6)",
+        "notes": "#123 assigned to false droplet",
+        "manual_count": -1,
+        "system_count": -1
+      }
+    ],
+    "AIS26T5": [
+      {
+        "interval_id": "AIS26T5_6350_6800",
+        "start_frame": 6350,
+        "end_frame": 6800,
+        "category": "segmentation_errors",
+        "error_description": "Bad Segmentation of droplet after contact weldpool",
+        "notes": "segmentation remaining after the droplet merges into the weld pool #12",
+        "manual_count": -1,
+        "system_count": -1
+      },
+      {
+        "interval_id": "AIS26T5_12720_12800",
+        "start_frame": 12720,
+        "end_frame": 12800,
+        "category": "segmentation_errors",
+        "error_description": "Bad Segmentation of droplet after contact weldpool",
+        "notes": "segmentation remaining after the droplet merges into the weld pool #27",
+        "manual_count": -1,
+        "system_count": -1
+      },
+      {
+        "interval_id": "AIS26T5_13000_13100",
+        "start_frame": 13000,
+        "end_frame": 13100,
+        "category": "incorrect_id_assignment",
+        "error_description": "Incorrect ID assigned (+1)",
+        "notes": "#28 repeated twice",
+        "manual_count": -1,
+        "system_count": -1
+      }
+    ],
+    "AIS27T5": [
+      {
+        "interval_id": "AIS27T5_4700_4900",
+        "start_frame": 4700,
+        "end_frame": 4900,
+        "category": "segmentation_errors",
+        "error_description": "Incorrect ID assigned and Bad segmenation after weldpool contact (-1)",
+        "notes": "#19 becomes #20 and bad segmentation after contact with weldpool",
+        "manual_count": -1,
+        "system_count": -1
+      },
+      {
+        "interval_id": "AIS27T5_9000_9100",
+        "start_frame": 9000,
+        "end_frame": 9100,
+        "category": "segmentation_errors",
+        "error_description": "Bad Segmentation of droplet after contact weldpool",
+        "notes": "#35 with bad segmentation after weldpool contact",
+        "manual_count": -1,
+        "system_count": -1
+      },
+      {
+        "interval_id": "AIS27T5_11500_11600",
+        "start_frame": 11500,
+        "end_frame": 11600,
+        "category": "segmentation_errors",
+        "error_description": "Bad Segmentation of droplet after contact weldpool",
+        "notes": "#44 with bad segmentation after weldpool contact",
+        "manual_count": -1,
+        "system_count": -1
+      },
+      {
+        "interval_id": "AIS27T5_11800_12000",
+        "start_frame": 11800,
+        "end_frame": 12000,
+        "category": "segmentation_errors",
+        "error_description": "Bad Segmentation of droplet after contact weldpool",
+        "notes": "#45 with bad segmentation after weldpool contact",
+        "manual_count": -1,
+        "system_count": -1
+      },
+      {
+        "interval_id": "AIS27T5_13750_13850",
+        "start_frame": 13750,
+        "end_frame": 13850,
+        "category": "segmentation_errors",
+        "error_description": "Bad Segmentation of droplet after contact weldpool",
+        "notes": "#52 with bad segmentation after weldpool contact",
+        "manual_count": -1,
+        "system_count": -1
+      }
+    ],
+    "AIS31T04": [
+      {
+        "interval_id": "AIS31T04_1_50",
+        "start_frame": 1,
+        "end_frame": 50,
+        "category": "uncategorized",
+        "error_description": "ID change (while dropping on same droplet) (-1)",
+        "notes": "#1 to #2 on same droplet while falling",
+        "manual_count": -1,
+        "system_count": -1
+      },
+      {
+        "interval_id": "AIS31T04_2100_2200",
+        "start_frame": 2100,
+        "end_frame": 2200,
+        "category": "false_positive_spatter",
+        "error_description": "false droplet id assigned (-2)",
+        "notes": "#35 false droplet",
+        "manual_count": -1,
+        "system_count": -1
+      },
+      {
+        "interval_id": "AIS31T04_2650_2750",
+        "start_frame": 2650,
+        "end_frame": 2750,
+        "category": "false_positive_spatter",
+        "error_description": "false droplet id assigned (-3)",
+        "notes": "#44 false droplet",
+        "manual_count": -1,
+        "system_count": -1
+      },
+      {
+        "interval_id": "AIS31T04_5450_5460",
+        "start_frame": 5450,
+        "end_frame": 5460,
+        "category": "false_positive_spatter",
+        "error_description": "false droplet id assigned (-4)",
+        "notes": "#85 false droplet it was a spatter not a droplet",
+        "manual_count": -1,
+        "system_count": -1
+      },
+      {
+        "interval_id": "AIS31T04_6500_6650",
+        "start_frame": 6500,
+        "end_frame": 6650,
+        "category": "false_positive_spatter",
+        "error_description": "false droplet id assigned (-5)",
+        "notes": "#102 false droplet",
+        "manual_count": -1,
+        "system_count": -1
+      },
+      {
+        "interval_id": "AIS31T04_9960_10000",
+        "start_frame": 9960,
+        "end_frame": 10000,
+        "category": "incorrect_id_assignment",
+        "error_description": "incorrect ID assigned (-6)",
+        "notes": "#156 should be #155",
+        "manual_count": -1,
+        "system_count": -1
+      }
+    ],
+    "AIS29T4": [
+      {
+        "interval_id": "AIS29T4_2440_2455",
+        "start_frame": 2440,
+        "end_frame": 2455,
+        "category": "incorrect_id_assignment",
+        "error_description": "Incorrect ID assigned (+1)",
+        "notes": "#24 repeated twice",
+        "manual_count": -1,
+        "system_count": -1
+      },
+      {
+        "interval_id": "AIS29T4_4000_4100",
+        "start_frame": 4000,
+        "end_frame": 4100,
+        "category": "incorrect_id_assignment",
+        "error_description": "Incorrect ID assigned (+2)",
+        "notes": "#39 repeated twice",
+        "manual_count": -1,
+        "system_count": -1
+      },
+      {
+        "interval_id": "AIS29T4_4600_4750",
+        "start_frame": 4600,
+        "end_frame": 4750,
+        "category": "incorrect_id_assignment",
+        "error_description": "Incorrect ID assigned (+3)",
+        "notes": "#45 repeated twice",
+        "manual_count": -1,
+        "system_count": -1
+      },
+      {
+        "interval_id": "AIS29T4_5700_5800",
+        "start_frame": 5700,
+        "end_frame": 5800,
+        "category": "incorrect_id_assignment",
+        "error_description": "Incorrect ID assigned (+4)",
+        "notes": "#54 repeated twice",
+        "manual_count": -1,
+        "system_count": -1
+      },
+      {
+        "interval_id": "AIS29T4_7800_7900",
+        "start_frame": 7800,
+        "end_frame": 7900,
+        "category": "incorrect_id_assignment",
+        "error_description": "Incorrect ID assigned (+5)",
+        "notes": "#73 repeated twice",
+        "manual_count": -1,
+        "system_count": -1
+      },
+      {
+        "interval_id": "AIS29T4_8400_8500",
+        "start_frame": 8400,
+        "end_frame": 8500,
+        "category": "incorrect_id_assignment",
+        "error_description": "Incorrect ID assigned (+6)",
+        "notes": "#78 repeated twice",
+        "manual_count": -1,
+        "system_count": -1
+      },
+      {
+        "interval_id": "AIS29T4_9000_9100",
+        "start_frame": 9000,
+        "end_frame": 9100,
+        "category": "incorrect_id_assignment",
+        "error_description": "Incorrect ID assigned (+7)",
+        "notes": "#84 repeated twice",
+        "manual_count": -1,
+        "system_count": -1
+      },
+      {
+        "interval_id": "AIS29T4_9900_10000",
+        "start_frame": 9900,
+        "end_frame": 10000,
+        "category": "incorrect_id_assignment",
+        "error_description": "Incorrect ID assigned (+8)",
+        "notes": "#91 repeated twice",
+        "manual_count": -1,
+        "system_count": -1
+      },
+      {
+        "interval_id": "AIS29T4_11000_109900",
+        "start_frame": 11000,
+        "end_frame": 109900,
+        "category": "incorrect_id_assignment",
+        "error_description": "Incorrect ID assigned (+9)",
+        "notes": "#99 repeated twice",
+        "manual_count": -1,
+        "system_count": -1
+      },
+      {
+        "interval_id": "AIS29T4_11600_11700",
+        "start_frame": 11600,
+        "end_frame": 11700,
+        "category": "incorrect_id_assignment",
+        "error_description": "Incorrect ID assigned (+10)",
+        "notes": "#105 repeated twice",
+        "manual_count": -1,
+        "system_count": -1
+      },
+      {
+        "interval_id": "AIS29T4_12700_12770",
+        "start_frame": 12700,
+        "end_frame": 12770,
+        "category": "incorrect_id_assignment",
+        "error_description": "Incorrect ID assigned (+10)",
+        "notes": "#114 repeated twice",
+        "manual_count": -1,
+        "system_count": -1
+      },
+      {
+        "interval_id": "AIS29T4_13200_13300",
+        "start_frame": 13200,
+        "end_frame": 13300,
+        "category": "incorrect_id_assignment",
+        "error_description": "Incorrect ID assigned (+10)",
+        "notes": "#118 repeated twice",
+        "manual_count": -1,
+        "system_count": -1
+      },
+      {
+        "interval_id": "AIS29T4_14000_14100",
+        "start_frame": 14000,
+        "end_frame": 14100,
+        "category": "incorrect_id_assignment",
+        "error_description": "Incorrect ID assigned (+13)",
+        "notes": "#126 repeated twice",
+        "manual_count": -1,
+        "system_count": -1
+      }
+    ],
+    "AIS31T01": [
+      {
+        "interval_id": "AIS31T01_1000_1050",
+        "start_frame": 1000,
+        "end_frame": 1050,
+        "category": "incorrect_id_assignment",
+        "error_description": "Incorrect ID assigned (+1)",
+        "notes": "#15 repeated twice",
+        "manual_count": -1,
+        "system_count": -1
+      },
+      {
+        "interval_id": "AIS31T01_1350_1450",
+        "start_frame": 1350,
+        "end_frame": 1450,
+        "category": "incorrect_id_assignment",
+        "error_description": "Incorrect ID assigned (+2)",
+        "notes": "#20 repeated twice",
+        "manual_count": -1,
+        "system_count": -1
+      },
+      {
+        "interval_id": "AIS31T01_1560_1600",
+        "start_frame": 1560,
+        "end_frame": 1600,
+        "category": "incorrect_id_assignment",
+        "error_description": "Incorrect ID assigned (+3)",
+        "notes": "#21 labelled when it should be #23",
+        "manual_count": -1,
+        "system_count": -1
+      },
+      {
+        "interval_id": "AIS31T01_2650_2800",
+        "start_frame": 2650,
+        "end_frame": 2800,
+        "category": "incorrect_id_assignment",
+        "error_description": "Incorrect ID assigned (+5)",
+        "notes": "#39 repeated thrice",
+        "manual_count": -1,
+        "system_count": -1
+      },
+      {
+        "interval_id": "AIS31T01_2850_2910",
+        "start_frame": 2850,
+        "end_frame": 2910,
+        "category": "incorrect_id_assignment",
+        "error_description": "Incorrect ID assigned (+6)",
+        "notes": "Instead of #41 it was labelled 39 again",
+        "manual_count": -1,
+        "system_count": -1
+      },
+      {
+        "interval_id": "AIS31T01_3200_3450",
+        "start_frame": 3200,
+        "end_frame": 3450,
+        "category": "incorrect_id_assignment",
+        "error_description": "Incorrect ID assigned (+8)",
+        "notes": "#44 and #45 repeated twice",
+        "manual_count": -1,
+        "system_count": -1
+      },
+      {
+        "interval_id": "AIS31T01_4000_4050",
+        "start_frame": 4000,
+        "end_frame": 4050,
+        "category": "incorrect_id_assignment",
+        "error_description": "Incorrect ID assigned (+8)",
+        "notes": "#53 repeated twice",
+        "manual_count": -1,
+        "system_count": -1
+      },
+      {
+        "interval_id": "AIS31T01_4300_4400",
+        "start_frame": 4300,
+        "end_frame": 4400,
+        "category": "false_positive_spatter",
+        "error_description": "false droplet id assigned (+7)",
+        "notes": "#58 assigned to false droplet",
+        "manual_count": -1,
+        "system_count": -1
+      },
+      {
+        "interval_id": "AIS31T01_6200_6300",
+        "start_frame": 6200,
+        "end_frame": 6300,
+        "category": "uncategorized",
+        "error_description": "ID repeated twice (+8)",
+        "notes": "ID repeated twice #84",
+        "manual_count": -1,
+        "system_count": -1
+      },
+      {
+        "interval_id": "AIS31T01_7100_7200",
+        "start_frame": 7100,
+        "end_frame": 7200,
+        "category": "incorrect_id_assignment",
+        "error_description": "Incorrect ID assigned (+9)",
+        "notes": "should be #97 instead of #95",
+        "manual_count": -1,
+        "system_count": -1
+      },
+      {
+        "interval_id": "AIS31T01_7200_7300",
+        "start_frame": 7200,
+        "end_frame": 7300,
+        "category": "incorrect_id_assignment",
+        "error_description": "Incorrect ID assigned (+10)",
+        "notes": "#97 repeated twice",
+        "manual_count": -1,
+        "system_count": -1
+      },
+      {
+        "interval_id": "AIS31T01_7400_7500",
+        "start_frame": 7400,
+        "end_frame": 7500,
+        "category": "false_positive_spatter",
+        "error_description": "false droplet id assigned (+9)",
+        "notes": "#101 assigned to false droplet",
+        "manual_count": -1,
+        "system_count": -1
+      },
+      {
+        "interval_id": "AIS31T01_7900_7950",
+        "start_frame": 7900,
+        "end_frame": 7950,
+        "category": "false_positive_spatter",
+        "error_description": "false droplet id assigned (+8)",
+        "notes": "#109 assigned to false droplet",
+        "manual_count": -1,
+        "system_count": -1
+      },
+      {
+        "interval_id": "AIS31T01_8100_8150",
+        "start_frame": 8100,
+        "end_frame": 8150,
+        "category": "false_positive_spatter",
+        "error_description": "false droplet id assigned (+7)",
+        "notes": "#114 assigned to false droplet",
+        "manual_count": -1,
+        "system_count": -1
+      },
+      {
+        "interval_id": "AIS31T01_8450_8500",
+        "start_frame": 8450,
+        "end_frame": 8500,
+        "category": "incorrect_id_assignment",
+        "error_description": "Incorrect ID assigned (+8)",
+        "notes": "#118 labelled when should be #120",
+        "manual_count": -1,
+        "system_count": -1
+      },
+      {
+        "interval_id": "AIS31T01_10500_10550",
+        "start_frame": 10500,
+        "end_frame": 10550,
+        "category": "incorrect_id_assignment",
+        "error_description": "Incorrect ID assigned (+9)",
+        "notes": "#146 repeated twice",
+        "manual_count": -1,
+        "system_count": -1
+      },
+      {
+        "interval_id": "AIS31T01_10650_10750",
+        "start_frame": 10650,
+        "end_frame": 10750,
+        "category": "uncategorized",
+        "error_description": "ID change (while dropping on same droplet) (+8)",
+        "notes": "#149 to #150 on same droplet while falling",
+        "manual_count": -1,
+        "system_count": -1
+      }
+    ],
+    "AIS27T1": [
+      {
+        "interval_id": "AIS27T1_1300_1400",
+        "start_frame": 1300,
+        "end_frame": 1400,
+        "category": "false_positive_spatter",
+        "error_description": "Incorrect ID assigned and #8 false droplet (-1)",
+        "notes": "#labelled 7 and 8 on opposite droplets furthermore #8 is false droplet",
+        "manual_count": -1,
+        "system_count": -1
+      },
+      {
+        "interval_id": "AIS27T1_1930_2030",
+        "start_frame": 1930,
+        "end_frame": 2030,
+        "category": "uncategorized",
+        "error_description": "ID change (#11 becomes #12 as it drops) (-2)",
+        "notes": "#11 becomes #12 as it drops",
+        "manual_count": -1,
+        "system_count": -1
+      },
+      {
+        "interval_id": "AIS27T1_3300_3400",
+        "start_frame": 3300,
+        "end_frame": 3400,
+        "category": "uncategorized",
+        "error_description": "ID change (#18 becomes #19 as it drops) (-3)",
+        "notes": "#18 becomes #19 as it drops",
+        "manual_count": -1,
+        "system_count": -1
+      },
+      {
+        "interval_id": "AIS27T1_3800_4000",
+        "start_frame": 3800,
+        "end_frame": 4000,
+        "category": "segmentation_errors",
+        "error_description": "ID change (#22 becomes #23 as it contact with weld pool) (-4)",
+        "notes": "#22 becomes #23 as it contact with weld pool",
+        "manual_count": -1,
+        "system_count": -1
+      },
+      {
+        "interval_id": "AIS27T1_8600_9000",
+        "start_frame": 8600,
+        "end_frame": 9000,
+        "category": "segmentation_errors",
+        "error_description": "Bad segmentation of droplet after contact weldpool and merges with another drop(-3)",
+        "notes": "#45 Bad segmentation of droplet after contact weldpool and repeated twice",
+        "manual_count": -1,
+        "system_count": -1
+      },
+      {
+        "interval_id": "AIS27T1_10200_10300",
+        "start_frame": 10200,
+        "end_frame": 10300,
+        "category": "segmentation_errors",
+        "error_description": "ID change (#51 becomes #52 as it contact with weld pool) (-4)",
+        "notes": "ID change (#51 becomes #52 as it contact with weld pool) (-4)",
+        "manual_count": -1,
+        "system_count": -1
+      }
+    ],
+    "AIS26T4R1": [
+      {
+        "interval_id": "AIS26T4R1_1050_1150",
+        "start_frame": 1050,
+        "end_frame": 1150,
+        "category": "segmentation_errors",
+        "error_description": "ID change (#2 becomes #3 as it contact with weld pool) (-1)",
+        "notes": "ID change (#51 becomes #52 as it contact with weld pool) (-1)",
+        "manual_count": -1,
+        "system_count": -1
+      },
+      {
+        "interval_id": "AIS26T4R1_1400_1500",
+        "start_frame": 1400,
+        "end_frame": 1500,
+        "category": "segmentation_errors",
+        "error_description": "ID change (#4 becomes #5 as it contact with weld pool) (-2)",
+        "notes": "ID change (#4 becomes #5 as it contact with weld pool) (-2)",
+        "manual_count": -1,
+        "system_count": -1
+      },
+      {
+        "interval_id": "AIS26T4R1_2500_2600",
+        "start_frame": 2500,
+        "end_frame": 2600,
+        "category": "uncategorized",
+        "error_description": "Flase droplet #7 (-3)",
+        "notes": "Flase droplet #7 (-3)",
+        "manual_count": -1,
+        "system_count": -1
+      },
+      {
+        "interval_id": "AIS26T4R1_3800_3900",
+        "start_frame": 3800,
+        "end_frame": 3900,
+        "category": "segmentation_errors",
+        "error_description": "ID change #10 becomes #11 as it contact with weld pool (-4)",
+        "notes": "#10 becomes #11 as it contact with weld pool",
+        "manual_count": -1,
+        "system_count": -1
+      },
+      {
+        "interval_id": "AIS26T4R1_5800_5900",
+        "start_frame": 5800,
+        "end_frame": 5900,
+        "category": "segmentation_errors",
+        "error_description": "ID change #16 becomes #17 as it contact with weld pool (-5)",
+        "notes": "#16 becomes #17 as it contact with weld pool",
+        "manual_count": -1,
+        "system_count": -1
+      },
+      {
+        "interval_id": "AIS26T4R1_6100_6200",
+        "start_frame": 6100,
+        "end_frame": 6200,
+        "category": "segmentation_errors",
+        "error_description": "ID change #18 becomes #19 as it contact with weld pool (-6)",
+        "notes": "#18 becomes #19 as it contact with weld pool",
+        "manual_count": -1,
+        "system_count": -1
+      },
+      {
+        "interval_id": "AIS26T4R1_6600_6650",
+        "start_frame": 6600,
+        "end_frame": 6650,
+        "category": "segmentation_errors",
+        "error_description": "ID change #20 becomes #21 as it contact with weld pool (-7)",
+        "notes": "ID change #20 becomes #21 as it contact with weld pool (-7)",
+        "manual_count": -1,
+        "system_count": -1
+      },
+      {
+        "interval_id": "AIS26T4R1_13600_13750",
+        "start_frame": 13600,
+        "end_frame": 13750,
+        "category": "segmentation_errors",
+        "error_description": "ID change #37 becomes #38 as it contact with weld pool (-8)",
+        "notes": "#37 becomes #38 as it contact with weld pool",
+        "manual_count": -1,
+        "system_count": -1
+      }
+    ],
+    "AIS28T1R2": [
+      {
+        "interval_id": "AIS28T1R2_1850_1900",
+        "start_frame": 1850,
+        "end_frame": 1900,
+        "category": "incorrect_id_assignment",
+        "error_description": "Incorrect ID assigned (+1)",
+        "notes": "#15 repeated twice when should have been labelled #17",
+        "manual_count": -1,
+        "system_count": -1
+      },
+      {
+        "interval_id": "AIS28T1R2_4700_4800",
+        "start_frame": 4700,
+        "end_frame": 4800,
+        "category": "uncategorized",
+        "error_description": "ID change (#39 becomes #40 as it drops) (0)",
+        "notes": "ID change (#39 becomes #40 as it drops) (0)",
+        "manual_count": -1,
+        "system_count": -1
+      },
+      {
+        "interval_id": "AIS28T1R2_5960_6050",
+        "start_frame": 5960,
+        "end_frame": 6050,
+        "category": "incorrect_id_assignment",
+        "error_description": "#Incorrect ID assigned and missed a droplet (+2)",
+        "notes": "#missed droplet after #48 and repeats #48 again",
+        "manual_count": -1,
+        "system_count": -1
+      },
+      {
+        "interval_id": "AIS28T1R2_6800_6900",
+        "start_frame": 6800,
+        "end_frame": 6900,
+        "category": "incorrect_id_assignment",
+        "error_description": "Incorrect ID assigned (+3)",
+        "notes": "Repeated #54 twice",
+        "manual_count": -1,
+        "system_count": -1
+      },
+      {
+        "interval_id": "AIS28T1R2_7500_7600",
+        "start_frame": 7500,
+        "end_frame": 7600,
+        "category": "incorrect_id_assignment",
+        "error_description": "Incorrect ID assigned (+4)",
+        "notes": "Repeated #58 twice",
+        "manual_count": -1,
+        "system_count": -1
+      },
+      {
+        "interval_id": "AIS28T1R2_9000_9100",
+        "start_frame": 9000,
+        "end_frame": 9100,
+        "category": "incorrect_id_assignment",
+        "error_description": "Incorrect ID assigned (+5)",
+        "notes": "Repeated 69 twice",
+        "manual_count": -1,
+        "system_count": -1
+      },
+      {
+        "interval_id": "AIS28T1R2_14300_14400",
+        "start_frame": 14300,
+        "end_frame": 14400,
+        "category": "incorrect_id_assignment",
+        "error_description": "Incorrect ID assigned (+5)",
+        "notes": "Repeated 110 twice",
+        "manual_count": -1,
+        "system_count": -1
+      }
+    ],
+    "AIS30T03R01": [
+      {
+        "interval_id": "AIS30T03R01_4500_4550",
+        "start_frame": 4500,
+        "end_frame": 4550,
+        "category": "incorrect_id_assignment",
+        "error_description": "Incorrect ID assigned (+1)",
+        "notes": "Repeated 54 twice",
+        "manual_count": -1,
+        "system_count": -1
+      },
+      {
+        "interval_id": "AIS30T03R01_4650_4800",
+        "start_frame": 4650,
+        "end_frame": 4800,
+        "category": "false_positive_spatter",
+        "error_description": "Flase droplet #56",
+        "notes": "Flase droplet #56 was actually a spatter",
+        "manual_count": -1,
+        "system_count": -1
+      },
+      {
+        "interval_id": "AIS30T03R01_4990_5020",
+        "start_frame": 4990,
+        "end_frame": 5020,
+        "category": "false_positive_spatter",
+        "error_description": "Flase droplet #60 (-1)",
+        "notes": "Flase droplet #60 was actually a spatter",
+        "manual_count": -1,
+        "system_count": -1
+      },
+      {
+        "interval_id": "AIS30T03R01_11100_11200",
+        "start_frame": 11100,
+        "end_frame": 11200,
+        "category": "incorrect_id_assignment",
+        "error_description": "Incorrect ID assigned",
+        "notes": "Repeated 131 twice",
+        "manual_count": -1,
+        "system_count": -1
+      },
+      {
+        "interval_id": "AIS30T03R01_12600_12700",
+        "start_frame": 12600,
+        "end_frame": 12700,
+        "category": "false_positive_spatter",
+        "error_description": "Flase droplet #151 (-1)",
+        "notes": "Flase droplet #151 was actually a spatter",
+        "manual_count": -1,
+        "system_count": -1
+      },
+      {
+        "interval_id": "AIS30T03R01_13100_13200",
+        "start_frame": 13100,
+        "end_frame": 13200,
+        "category": "segmentation_errors",
+        "error_description": "ID change #158 becomes #159 as it contact with weld pool (-2)",
+        "notes": "ID change #158 becomes #159 as it contact with weld pool (-2)",
+        "manual_count": -1,
+        "system_count": -1
+      }
+    ],
+    "AIS29T5": [
+      {
+        "interval_id": "AIS29T5_2450_2550",
+        "start_frame": 2450,
+        "end_frame": 2550,
+        "category": "uncategorized",
+        "error_description": "ID change (while dropping on same droplet)",
+        "notes": "#26 to #25 on same droplet while falling",
+        "manual_count": -1,
+        "system_count": -1
+      },
+      {
+        "interval_id": "AIS29T5_2900_2950",
+        "start_frame": 2900,
+        "end_frame": 2950,
+        "category": "incorrect_id_assignment",
+        "error_description": "Incorrect ID assigned",
+        "notes": "#31 labelled when should be #30",
+        "manual_count": -1,
+        "system_count": -1
+      },
+      {
+        "interval_id": "AIS29T5_4900_4950",
+        "start_frame": 4900,
+        "end_frame": 4950,
+        "category": "incorrect_id_assignment",
+        "error_description": "Incorrect ID assigned (+1)",
+        "notes": "#48 repeated twice",
+        "manual_count": -1,
+        "system_count": -1
+      },
+      {
+        "interval_id": "AIS29T5_7500_7600",
+        "start_frame": 7500,
+        "end_frame": 7600,
+        "category": "false_positive_spatter",
+        "error_description": "Flase droplet #76 (0)",
+        "notes": "Flase droplet #76 was actually a spatter",
+        "manual_count": -1,
+        "system_count": -1
+      },
+      {
+        "interval_id": "AIS29T5_10800_10900",
+        "start_frame": 10800,
+        "end_frame": 10900,
+        "category": "incorrect_id_assignment",
+        "error_description": "Incorrect ID assigned",
+        "notes": "Repeated 105 twice (initally labelled 106 but then changed to 105)",
+        "manual_count": -1,
+        "system_count": -1
+      }
+    ],
+    "AIS28T5": [
+      {
+        "interval_id": "AIS28T5_2500_2600",
+        "start_frame": 2500,
+        "end_frame": 2600,
+        "category": "id_switches",
+        "error_description": "Incorrect ID assigned",
+        "notes": "#23 should be labelled #22 and vice versa. (ID switch possible)",
+        "manual_count": -1,
+        "system_count": -1
+      },
+      {
+        "interval_id": "AIS28T5_5750_5850",
+        "start_frame": 5750,
+        "end_frame": 5850,
+        "category": "segmentation_errors",
+        "error_description": "ID change #49 becomes #51 as it contact with weld pool (-1)",
+        "notes": "#49 becomes #51 as it contact with weld pool",
+        "manual_count": -1,
+        "system_count": -1
+      },
+      {
+        "interval_id": "AIS28T5_9000_9100",
+        "start_frame": 9000,
+        "end_frame": 9100,
+        "category": "segmentation_errors",
+        "error_description": "ID change #75 becomes #76 as it contact with weld pool (-2)",
+        "notes": "#75 becomes #76 as it contact with weld pool",
+        "manual_count": -1,
+        "system_count": -1
+      },
+      {
+        "interval_id": "AIS28T5_9350_9400",
+        "start_frame": 9350,
+        "end_frame": 9400,
+        "category": "uncategorized",
+        "error_description": "Flase droplet #78 (-3)",
+        "notes": "Flase droplet #78 (-3)",
+        "manual_count": -1,
+        "system_count": -1
+      },
+      {
+        "interval_id": "AIS28T5_14300_14350",
+        "start_frame": 14300,
+        "end_frame": 14350,
+        "category": "segmentation_errors",
+        "error_description": "ID change #117 becomes #118 as it contact with weld pool (-4)",
+        "notes": "#117 becomes #118 as it contact with weld pool",
+        "manual_count": -1,
+        "system_count": -1
+      }
+    ],
+    "AIS27T6": [
+      {
+        "interval_id": "AIS27T6_3950_4050",
+        "start_frame": 3950,
+        "end_frame": 4050,
+        "category": "segmentation_errors",
+        "error_description": "ID change #19 becomes #20 as it contact with weld pool (-1)",
+        "notes": "#19 becomes #20 as it contact with weld pool",
+        "manual_count": -1,
+        "system_count": -1
+      },
+      {
+        "interval_id": "AIS27T6_4300_4350",
+        "start_frame": 4300,
+        "end_frame": 4350,
+        "category": "incorrect_id_assignment",
+        "error_description": "#incorrect ID assigned (-2)",
+        "notes": "Labelled #23 when it should be #22",
+        "manual_count": -1,
+        "system_count": -1
+      },
+      {
+        "interval_id": "AIS27T6_4800_4850",
+        "start_frame": 4800,
+        "end_frame": 4850,
+        "category": "segmentation_errors",
+        "error_description": "Bad segmentation of droplet #26 (false droplet too) (-2)",
+        "notes": "Bad segmentation of droplet #26 (false droplet too) (-2)",
+        "manual_count": -1,
+        "system_count": -1
+      },
+      {
+        "interval_id": "AIS27T6_12400_12500",
+        "start_frame": 12400,
+        "end_frame": 12500,
+        "category": "segmentation_errors",
+        "error_description": "Bad segmentation of droplet #60 (-2)",
+        "notes": "Bad segmentation of droplet #26 (false droplet too) (-2)",
+        "manual_count": -1,
+        "system_count": -1
+      },
+      {
+        "interval_id": "AIS27T6_14900_15000",
+        "start_frame": 14900,
+        "end_frame": 15000,
+        "category": "incorrect_id_assignment",
+        "error_description": "Incorrect ID assigned (-1)",
+        "notes": "#71 repeated twice",
+        "manual_count": -1,
+        "system_count": -1
+      }
+    ],
+    "AIS30T01R03": [
+      {
+        "interval_id": "AIS30T01R03_0_10",
+        "start_frame": 0,
+        "end_frame": 10,
+        "category": "incorrect_id_assignment",
+        "error_description": "Incorrect ID assigned",
+        "notes": "Droplet #1 is labelled #2",
+        "manual_count": -1,
+        "system_count": -1
+      },
+      {
+        "interval_id": "AIS30T01R03_4360_4400",
+        "start_frame": 4360,
+        "end_frame": 4400,
+        "category": "incorrect_id_assignment",
+        "error_description": "Incorrect ID assigned (-1)",
+        "notes": "Droplet #51 is labelled #52",
+        "manual_count": -1,
+        "system_count": -1
+      },
+      {
+        "interval_id": "AIS30T01R03_11000_11050",
+        "start_frame": 11000,
+        "end_frame": 11050,
+        "category": "incorrect_id_assignment",
+        "error_description": "Incorrect ID assigned (0)",
+        "notes": "#136 repeated twice",
+        "manual_count": -1,
+        "system_count": -1
+      },
+      {
+        "interval_id": "AIS30T01R03_14850_14950",
+        "start_frame": 14850,
+        "end_frame": 14950,
+        "category": "incorrect_id_assignment",
+        "error_description": "Incorrect ID assigned (+1)",
+        "notes": "#182 repeated twice",
+        "manual_count": -1,
+        "system_count": -1
+      }
+    ],
+    "AIS28T3": [
+      {
+        "interval_id": "AIS28T3_1150_1200",
+        "start_frame": 1150,
+        "end_frame": 1200,
+        "category": "uncategorized",
+        "error_description": "ID change (while dropping on same droplet) (-1)",
+        "notes": "#10 to #11 on same droplet while falling",
+        "manual_count": -1,
+        "system_count": -1
+      },
+      {
+        "interval_id": "AIS28T3_4850_4900",
+        "start_frame": 4850,
+        "end_frame": 4900,
+        "category": "uncategorized",
+        "error_description": "ID change (while dropping on same droplet) (-2)",
+        "notes": "#43 to #44 on same droplet while falling",
+        "manual_count": -1,
+        "system_count": -1
+      },
+      {
+        "interval_id": "AIS28T3_8000_8010",
+        "start_frame": 8000,
+        "end_frame": 8010,
+        "category": "segmentation_errors",
+        "error_description": "ID change #69 becomes #70 as it contact with weld pool (-3)",
+        "notes": "#69 becomes #70 as it contact with weld pool",
+        "manual_count": -1,
+        "system_count": -1
+      },
+      {
+        "interval_id": "AIS28T3_10800_10880",
+        "start_frame": 10800,
+        "end_frame": 10880,
+        "category": "uncategorized",
+        "error_description": "ID change (while dropping on same droplet) (-4)",
+        "notes": "#94 to #95 on same droplet while falling",
+        "manual_count": -1,
+        "system_count": -1
+      },
+      {
+        "interval_id": "AIS28T3_12750_12780",
+        "start_frame": 12750,
+        "end_frame": 12780,
+        "category": "segmentation_errors",
+        "error_description": "ID change #112 becomes #113 as it contact with weld pool (-4)",
+        "notes": "ID change #112 becomes #113 as it contact with weld pool (-4)",
+        "manual_count": -1,
+        "system_count": -1
+      }
+    ],
+    "AIS27T2R1": [
+      {
+        "interval_id": "AIS27T2R1_6480_6510",
+        "start_frame": 6480,
+        "end_frame": 6510,
+        "category": "uncategorized",
+        "error_description": "ID change (while dropping on same droplet) (-1)",
+        "notes": "#28 to #29 on same droplet while falling",
+        "manual_count": -1,
+        "system_count": -1
+      }
+    ],
+    "AIS29T3": [
+      {
+        "interval_id": "AIS29T3_890_910",
+        "start_frame": 890,
+        "end_frame": 910,
+        "category": "segmentation_errors",
+        "error_description": "ID change #11 becomes #12 as it contact with weld pool (-1)",
+        "notes": "#11 becomes #12 as it contact with weld pool",
+        "manual_count": -1,
+        "system_count": -1
+      },
+      {
+        "interval_id": "AIS29T3_2300_2370",
+        "start_frame": 2300,
+        "end_frame": 2370,
+        "category": "uncategorized",
+        "error_description": "ID change (while dropping on same droplet) (-2)",
+        "notes": "#25 to #26 on same droplet while falling",
+        "manual_count": -1,
+        "system_count": -1
+      },
+      {
+        "interval_id": "AIS29T3_2580_2600",
+        "start_frame": 2580,
+        "end_frame": 2600,
+        "category": "uncategorized",
+        "error_description": "ID change (while dropping on same droplet) (-3)",
+        "notes": "#29 to #30 on same droplet while falling",
+        "manual_count": -1,
+        "system_count": -1
+      },
+      {
+        "interval_id": "AIS29T3_3500_3600",
+        "start_frame": 3500,
+        "end_frame": 3600,
+        "category": "uncategorized",
+        "error_description": "ID changes (while dropping on same droplet and contact) (-5)",
+        "notes": "#39 to #40 to #41 on same droplet while falling and then after contact",
+        "manual_count": -1,
+        "system_count": -1
+      },
+      {
+        "interval_id": "AIS29T3_8400_8420",
+        "start_frame": 8400,
+        "end_frame": 8420,
+        "category": "false_positive_spatter",
+        "error_description": "ID assigned to false droplet(-6) #88",
+        "notes": "ID assigned to false droplet(-6) #88 was a spatter",
+        "manual_count": -1,
+        "system_count": -1
+      },
+      {
+        "interval_id": "AIS29T3_9650_9750",
+        "start_frame": 9650,
+        "end_frame": 9750,
+        "category": "incorrect_id_assignment",
+        "error_description": "Incorrect Id assigned (-7) #102",
+        "notes": "Incorrect Id assigned (-7) #102 instead of 101",
+        "manual_count": -1,
+        "system_count": -1
+      },
+      {
+        "interval_id": "AIS29T3_10500_10600",
+        "start_frame": 10500,
+        "end_frame": 10600,
+        "category": "uncategorized",
+        "error_description": "ID change (while dropping on same droplet) (-8)",
+        "notes": "#112 changes to #113",
+        "manual_count": -1,
+        "system_count": -1
+      },
+      {
+        "interval_id": "AIS29T3_10700_10800",
+        "start_frame": 10700,
+        "end_frame": 10800,
+        "category": "uncategorized",
+        "error_description": "ID change (while dropping on same droplet) (-9)",
+        "notes": "#115 changes to #116",
+        "manual_count": -1,
+        "system_count": -1
+      },
+      {
+        "interval_id": "AIS29T3_11480_11530",
+        "start_frame": 11480,
+        "end_frame": 11530,
+        "category": "uncategorized",
+        "error_description": "ID change (while dropping on same droplet) (-10)",
+        "notes": "#123 changes to #124",
+        "manual_count": -1,
+        "system_count": -1
+      },
+      {
+        "interval_id": "AIS29T3_14100_14200",
+        "start_frame": 14100,
+        "end_frame": 14200,
+        "category": "segmentation_errors",
+        "error_description": "ID change #148 becomes #149 as it contact with weld pool (-11)",
+        "notes": "#148 becomes #149 as it contact with weld pool",
+        "manual_count": -1,
+        "system_count": -1
+      }
+    ],
+    "AIS28T2": [
+      {
+        "interval_id": "AIS28T2_600_900",
+        "start_frame": 600,
+        "end_frame": 900,
+        "category": "segmentation_errors",
+        "error_description": "ID change #5 becomes #6 as it contact with weld pool (-1)",
+        "notes": "#5 becomes #6 as it contact with weld pool",
+        "manual_count": -1,
+        "system_count": -1
+      },
+      {
+        "interval_id": "AIS28T2_1450_1500",
+        "start_frame": 1450,
+        "end_frame": 1500,
+        "category": "uncategorized",
+        "error_description": "ID change (while dropping on same droplet) (-2)",
+        "notes": "#11 changes to #12",
+        "manual_count": -1,
+        "system_count": -1
+      },
+      {
+        "interval_id": "AIS28T2_2300_2400",
+        "start_frame": 2300,
+        "end_frame": 2400,
+        "category": "incorrect_id_assignment",
+        "error_description": "Incorrect ID assigned to #17 (-1)",
+        "notes": "Should be #18 instead of #17 again",
+        "manual_count": -1,
+        "system_count": -1
+      },
+      {
+        "interval_id": "AIS28T2_3150_3200",
+        "start_frame": 3150,
+        "end_frame": 3200,
+        "category": "uncategorized",
+        "error_description": "ID change (while dropping on same droplet) (-2)",
+        "notes": "#23 changes to #24",
+        "manual_count": -1,
+        "system_count": -1
+      },
+      {
+        "interval_id": "AIS28T2_3790_3810",
+        "start_frame": 3790,
+        "end_frame": 3810,
+        "category": "uncategorized",
+        "error_description": "ID change (while dropping on same droplet) (-3)",
+        "notes": "#29 changes to #30",
+        "manual_count": -1,
+        "system_count": -1
+      },
+      {
+        "interval_id": "AIS28T2_4050_4200",
+        "start_frame": 4050,
+        "end_frame": 4200,
+        "category": "uncategorized",
+        "error_description": "ID change (while dropping on same droplet) (-4)",
+        "notes": "#33 changes to #34",
+        "manual_count": -1,
+        "system_count": -1
+      },
+      {
+        "interval_id": "AIS28T2_5800_5810",
+        "start_frame": 5800,
+        "end_frame": 5810,
+        "category": "segmentation_errors",
+        "error_description": "ID change #43 becomes #44 as it contact with weld pool (-5)",
+        "notes": "#43 becomes #44 as it contact with weld pool",
+        "manual_count": -1,
+        "system_count": -1
+      },
+      {
+        "interval_id": "AIS28T2_8150_8250",
+        "start_frame": 8150,
+        "end_frame": 8250,
+        "category": "uncategorized",
+        "error_description": "ID change (while dropping on same droplet and after contact changes again) (-7)",
+        "notes": "#60 changes to #61 to #62",
+        "manual_count": -1,
+        "system_count": -1
+      },
+      {
+        "interval_id": "AIS28T2_8500_8550",
+        "start_frame": 8500,
+        "end_frame": 8550,
+        "category": "uncategorized",
+        "error_description": "ID change (while dropping on same droplet) (-8)",
+        "notes": "#64 changes to #65",
+        "manual_count": -1,
+        "system_count": -1
+      },
+      {
+        "interval_id": "AIS28T2_1860_10800",
+        "start_frame": 1860,
+        "end_frame": 10800,
+        "category": "segmentation_errors",
+        "error_description": "ID change #81 becomes #82 as it contact with weld pool (-9)",
+        "notes": "#81 becomes #82 as it contact with weld pool",
+        "manual_count": -1,
+        "system_count": -1
+      },
+      {
+        "interval_id": "AIS28T2_11300_11350",
+        "start_frame": 11300,
+        "end_frame": 11350,
+        "category": "segmentation_errors",
+        "error_description": "ID change #85 becomes #86 as it contact with weld pool (-10)",
+        "notes": "#85 becomes #86 as it contact with weld pool",
+        "manual_count": -1,
+        "system_count": -1
+      },
+      {
+        "interval_id": "AIS28T2_12000_12030",
+        "start_frame": 12000,
+        "end_frame": 12030,
+        "category": "segmentation_errors",
+        "error_description": "ID change #90 becomes #91 as it contact with weld pool (-11)",
+        "notes": "#90 becomes #91 as it contact with weld pool",
+        "manual_count": -1,
+        "system_count": -1
+      },
+      {
+        "interval_id": "AIS28T2_12400_12550",
+        "start_frame": 12400,
+        "end_frame": 12550,
+        "category": "segmentation_errors",
+        "error_description": "ID change #94 becomes #95 then 96 as it contact with weld pool (-13)",
+        "notes": "ID change #94 becomes #95 then 96 as it contact with weld pool (-13)",
+        "manual_count": -1,
+        "system_count": -1
+      },
+      {
+        "interval_id": "AIS28T2_13100_13200",
+        "start_frame": 13100,
+        "end_frame": 13200,
+        "category": "segmentation_errors",
+        "error_description": "#101 to #102 after contact with weld pool (-15)",
+        "notes": "#101 to #102 after contact with weld pool",
+        "manual_count": -1,
+        "system_count": -1
+      },
+      {
+        "interval_id": "AIS28T2_14100_14400",
+        "start_frame": 14100,
+        "end_frame": 14400,
+        "category": "incorrect_id_assignment",
+        "error_description": "Incorrect ID assigned (-13)",
+        "notes": "#108 repeated thrice",
+        "manual_count": -1,
+        "system_count": -1
+      },
+      {
+        "interval_id": "AIS28T2_14650_14700",
+        "start_frame": 14650,
+        "end_frame": 14700,
+        "category": "uncategorized",
+        "error_description": "ID change (while dropping on same droplet) (-14)",
+        "notes": "#111 to #112",
+        "manual_count": -1,
+        "system_count": -1
+      },
+      {
+        "interval_id": "AIS28T2_14900_14920",
+        "start_frame": 14900,
+        "end_frame": 14920,
+        "category": "uncategorized",
+        "error_description": "ID change (while dropping on same droplet) (-15)",
+        "notes": "#114 to #115",
+        "manual_count": -1,
+        "system_count": -1
+      }
+    ],
+    "AIS28T4": [
+      {
+        "interval_id": "AIS28T4_800_900",
+        "start_frame": 800,
+        "end_frame": 900,
+        "category": "uncategorized",
+        "error_description": "ID change (while dropping on same droplet) (-1)",
+        "notes": "#8 to #9",
+        "manual_count": -1,
+        "system_count": -1
+      },
+      {
+        "interval_id": "AIS28T4_1400_1420",
+        "start_frame": 1400,
+        "end_frame": 1420,
+        "category": "uncategorized",
+        "error_description": "ID Change while dropping (-2)",
+        "notes": "#13 to #14",
+        "manual_count": -1,
+        "system_count": -1
+      },
+      {
+        "interval_id": "AIS28T4_1500_1780",
+        "start_frame": 1500,
+        "end_frame": 1780,
+        "category": "incorrect_id_assignment",
+        "error_description": "Incorrect ID assigned (-1)",
+        "notes": "#15 repeated twice",
+        "manual_count": -1,
+        "system_count": -1
+      },
+      {
+        "interval_id": "AIS28T4_1900_2000",
+        "start_frame": 1900,
+        "end_frame": 2000,
+        "category": "uncategorized",
+        "error_description": "ID Change while dropping (-2)",
+        "notes": "#17 to #18",
+        "manual_count": -1,
+        "system_count": -1
+      },
+      {
+        "interval_id": "AIS28T4_2700_2770",
+        "start_frame": 2700,
+        "end_frame": 2770,
+        "category": "uncategorized",
+        "error_description": "ID Change while dropping (-3)",
+        "notes": "#24 to #25",
+        "manual_count": -1,
+        "system_count": -1
+      },
+      {
+        "interval_id": "AIS28T4_3000_3020",
+        "start_frame": 3000,
+        "end_frame": 3020,
+        "category": "uncategorized",
+        "error_description": "ID Change while dropping (-4)",
+        "notes": "#27 to #28",
+        "manual_count": -1,
+        "system_count": -1
+      },
+      {
+        "interval_id": "AIS28T4_3450_3480",
+        "start_frame": 3450,
+        "end_frame": 3480,
+        "category": "uncategorized",
+        "error_description": "ID Change while dropping (-5)",
+        "notes": "#32 to #33",
+        "manual_count": -1,
+        "system_count": -1
+      },
+      {
+        "interval_id": "AIS28T4_3800_3900",
+        "start_frame": 3800,
+        "end_frame": 3900,
+        "category": "incorrect_id_assignment",
+        "error_description": "Incorrect ID assigned (-4)",
+        "notes": "#35 repeated twice",
+        "manual_count": -1,
+        "system_count": -1
+      },
+      {
+        "interval_id": "AIS28T4_4200_4300",
+        "start_frame": 4200,
+        "end_frame": 4300,
+        "category": "uncategorized",
+        "error_description": "ID Change while dropping (-7)",
+        "notes": "#38 to #39",
+        "manual_count": -1,
+        "system_count": -1
+      },
+      {
+        "interval_id": "AIS28T4_4500_4550",
+        "start_frame": 4500,
+        "end_frame": 4550,
+        "category": "uncategorized",
+        "error_description": "ID Change while dropping (-8)",
+        "notes": "#41 to #42",
+        "manual_count": -1,
+        "system_count": -1
+      },
+      {
+        "interval_id": "AIS28T4_5100_5200",
+        "start_frame": 5100,
+        "end_frame": 5200,
+        "category": "incorrect_id_assignment",
+        "error_description": "Incorrect ID assigned (-7)",
+        "notes": "#45 repeated twice",
+        "manual_count": -1,
+        "system_count": -1
+      },
+      {
+        "interval_id": "AIS28T4_8000_8100",
+        "start_frame": 8000,
+        "end_frame": 8100,
+        "category": "incorrect_id_assignment",
+        "error_description": "Incorrect ID assigned (-6)",
+        "notes": "#65 repeated twice",
+        "manual_count": -1,
+        "system_count": -1
+      },
+      {
+        "interval_id": "AIS28T4_9100_9210",
+        "start_frame": 9100,
+        "end_frame": 9210,
+        "category": "uncategorized",
+        "error_description": "ID Change while dropping (-7)",
+        "notes": "#75 to #76",
+        "manual_count": -1,
+        "system_count": -1
+      },
+      {
+        "interval_id": "AIS28T4_9400_9500",
+        "start_frame": 9400,
+        "end_frame": 9500,
+        "category": "uncategorized",
+        "error_description": "ID Change while dropping (-8)",
+        "notes": "#78 to #79",
+        "manual_count": -1,
+        "system_count": -1
+      },
+      {
+        "interval_id": "AIS28T4_10000_10100",
+        "start_frame": 10000,
+        "end_frame": 10100,
+        "category": "uncategorized",
+        "error_description": "ID Change while dropping (-9)",
+        "notes": "#83 to #84",
+        "manual_count": -1,
+        "system_count": -1
+      },
+      {
+        "interval_id": "AIS28T4_10800_10900",
+        "start_frame": 10800,
+        "end_frame": 10900,
+        "category": "uncategorized",
+        "error_description": "ID Change while dropping (-10)",
+        "notes": "#91 to #92",
+        "manual_count": -1,
+        "system_count": -1
+      },
+      {
+        "interval_id": "AIS28T4_14300_14330",
+        "start_frame": 14300,
+        "end_frame": 14330,
+        "category": "uncategorized",
+        "error_description": "ID Change while dropping (-11)",
+        "notes": "#115 to #116",
+        "manual_count": -1,
+        "system_count": -1
+      }
+    ],
+    "AIS29T1": [
+      {
+        "interval_id": "AIS29T1_600_700",
+        "start_frame": 600,
+        "end_frame": 700,
+        "category": "false_positive_spatter",
+        "error_description": "ID assigned to false droplet(-1) #9",
+        "notes": "ID assigned to false droplet(-1) #9",
+        "manual_count": -1,
+        "system_count": -1
+      },
+      {
+        "interval_id": "AIS29T1_700_800",
+        "start_frame": 700,
+        "end_frame": 800,
+        "category": "uncategorized",
+        "error_description": "ID Change while dropping (-2)",
+        "notes": "#10 to #11",
+        "manual_count": -1,
+        "system_count": -1
+      },
+      {
+        "interval_id": "AIS29T1_1200_1250",
+        "start_frame": 1200,
+        "end_frame": 1250,
+        "category": "uncategorized",
+        "error_description": "ID Change while dropping (-3)",
+        "notes": "#16 to #17",
+        "manual_count": -1,
+        "system_count": -1
+      },
+      {
+        "interval_id": "AIS29T1_1400_1500",
+        "start_frame": 1400,
+        "end_frame": 1500,
+        "category": "segmentation_errors",
+        "error_description": "#19 to #20 after contact with weld pool (-4)",
+        "notes": "#19 to #20 after contact with weld pool",
+        "manual_count": -1,
+        "system_count": -1
+      },
+      {
+        "interval_id": "AIS29T1_1640_1660",
+        "start_frame": 1640,
+        "end_frame": 1660,
+        "category": "uncategorized",
+        "error_description": "#22 to #23 while dropping (-5)",
+        "notes": "#22 to #23 while dropping",
+        "manual_count": -1,
+        "system_count": -1
+      },
+      {
+        "interval_id": "AIS29T1_1900_1930",
+        "start_frame": 1900,
+        "end_frame": 1930,
+        "category": "uncategorized",
+        "error_description": "#26 to #27 while dropping (-6)",
+        "notes": "#26 to #27 while dropping (-6)",
+        "manual_count": -1,
+        "system_count": -1
+      },
+      {
+        "interval_id": "AIS29T1_2300_2500",
+        "start_frame": 2300,
+        "end_frame": 2500,
+        "category": "incorrect_id_assignment",
+        "error_description": "Incorrect ID assigned (-7)",
+        "notes": "#31 repeated twice",
+        "manual_count": -1,
+        "system_count": -1
+      },
+      {
+        "interval_id": "AIS29T1_2600_2650",
+        "start_frame": 2600,
+        "end_frame": 2650,
+        "category": "uncategorized",
+        "error_description": "#33 to #34 while dropping (-8)",
+        "notes": "#33 to #34 while dropping (-8)",
+        "manual_count": -1,
+        "system_count": -1
+      },
+      {
+        "interval_id": "AIS29T1_3500_3600",
+        "start_frame": 3500,
+        "end_frame": 3600,
+        "category": "incorrect_id_assignment",
+        "error_description": "Incorrect ID assigned (-9)",
+        "notes": "#42 repeated twice",
+        "manual_count": -1,
+        "system_count": -1
+      },
+      {
+        "interval_id": "AIS29T1_4500_4600",
+        "start_frame": 4500,
+        "end_frame": 4600,
+        "category": "uncategorized",
+        "error_description": "#51 to #52 while dropping (-10)",
+        "notes": "#51 to #52 while dropping",
+        "manual_count": -1,
+        "system_count": -1
+      },
+      {
+        "interval_id": "AIS29T1_5000_5200",
+        "start_frame": 5000,
+        "end_frame": 5200,
+        "category": "incorrect_id_assignment",
+        "error_description": "Incorrect ID assigned (-9)",
+        "notes": "#56 repeated twice",
+        "manual_count": -1,
+        "system_count": -1
+      },
+      {
+        "interval_id": "AIS29T1_5500_5600",
+        "start_frame": 5500,
+        "end_frame": 5600,
+        "category": "uncategorized",
+        "error_description": "#60 to #61 while dropping (-10)",
+        "notes": "#60 to #61 while dropping (-10)",
+        "manual_count": -1,
+        "system_count": -1
+      },
+      {
+        "interval_id": "AIS29T1_7300_7400",
+        "start_frame": 7300,
+        "end_frame": 7400,
+        "category": "segmentation_errors",
+        "error_description": "ID change #78 becomes #79 as it contact with weld pool (-11)",
+        "notes": "#77 becomes #79 as it contact with weld pool",
+        "manual_count": -1,
+        "system_count": -1
+      },
+      {
+        "interval_id": "AIS29T1_8900_9000",
+        "start_frame": 8900,
+        "end_frame": 9000,
+        "category": "uncategorized",
+        "error_description": "ID Change #94 to #95 while dropping (-12)",
+        "notes": "#94 to #95",
+        "manual_count": -1,
+        "system_count": -1
+      },
+      {
+        "interval_id": "AIS29T1_9400_9500",
+        "start_frame": 9400,
+        "end_frame": 9500,
+        "category": "incorrect_id_assignment",
+        "error_description": "Incorrect ID assigned (-11)",
+        "notes": "#97 when should be #99",
+        "manual_count": -1,
+        "system_count": -1
+      },
+      {
+        "interval_id": "AIS29T1_9600_9700",
+        "start_frame": 9600,
+        "end_frame": 9700,
+        "category": "incorrect_id_assignment",
+        "error_description": "Incorrect ID assigned (-10)",
+        "notes": "#100 repeated twice",
+        "manual_count": -1,
+        "system_count": -1
+      },
+      {
+        "interval_id": "AIS29T1_11000_11100",
+        "start_frame": 11000,
+        "end_frame": 11100,
+        "category": "incorrect_id_assignment",
+        "error_description": "Incorrect ID assigned (-9)",
+        "notes": "#110 repeated twice",
+        "manual_count": -1,
+        "system_count": -1
+      },
+      {
+        "interval_id": "AIS29T1_11200_11300",
+        "start_frame": 11200,
+        "end_frame": 11300,
+        "category": "uncategorized",
+        "error_description": "ID Change #112 to #113 while dropping (-10)",
+        "notes": "#112 to #113",
+        "manual_count": -1,
+        "system_count": -1
+      },
+      {
+        "interval_id": "AIS29T1_11400_11600",
+        "start_frame": 11400,
+        "end_frame": 11600,
+        "category": "incorrect_id_assignment",
+        "error_description": "Incorrect ID assigned and #116 to #117 to #118 (-11)",
+        "notes": "Incorrect ID assigned and #116 to #117 tp #118 (-11)",
+        "manual_count": -1,
+        "system_count": -1
+      },
+      {
+        "interval_id": "AIS29T1_12500_12550",
+        "start_frame": 12500,
+        "end_frame": 12550,
+        "category": "uncategorized",
+        "error_description": "#126 to #127 while dropping (-12)",
+        "notes": "#126 to #127 while dropping",
+        "manual_count": -1,
+        "system_count": -1
+      },
+      {
+        "interval_id": "AIS29T1_12700_12800",
+        "start_frame": 12700,
+        "end_frame": 12800,
+        "category": "uncategorized",
+        "error_description": "#130 to #131 while dropping (-13)",
+        "notes": "#130 to #131 while dropping (-13)",
+        "manual_count": -1,
+        "system_count": -1
+      },
+      {
+        "interval_id": "AIS29T1_13000_13050",
+        "start_frame": 13000,
+        "end_frame": 13050,
+        "category": "incorrect_id_assignment",
+        "error_description": "Incorrect ID assigned (-14)",
+        "notes": "#133 labelled as #134",
+        "manual_count": -1,
+        "system_count": -1
+      },
+      {
+        "interval_id": "AIS29T1_14000_14050",
+        "start_frame": 14000,
+        "end_frame": 14050,
+        "category": "uncategorized",
+        "error_description": "#143 to #144 while dropping",
+        "notes": "#143 to #144 while dropping",
+        "manual_count": -1,
+        "system_count": -1
+      },
+      {
+        "interval_id": "AIS29T1_14200_14300",
+        "start_frame": 14200,
+        "end_frame": 14300,
+        "category": "incorrect_id_assignment",
+        "error_description": "Incorrect ID assigned (-14)",
+        "notes": "#145 repeated twice",
+        "manual_count": -1,
+        "system_count": -1
+      },
+      {
+        "interval_id": "AIS29T1_14900_15000",
+        "start_frame": 14900,
+        "end_frame": 15000,
+        "category": "incorrect_id_assignment",
+        "error_description": "Incorrect ID assigned (-13)",
+        "notes": "#151 repeated twice",
+        "manual_count": -1,
+        "system_count": -1
+      }
+    ],
+    "AIS29T2": [
+      {
+        "interval_id": "AIS29T2_0_10",
+        "start_frame": 0,
+        "end_frame": 10,
+        "category": "id_switches",
+        "error_description": "ID Switched",
+        "notes": "Between #1 and #2",
+        "manual_count": -1,
+        "system_count": -1
+      },
+      {
+        "interval_id": "AIS29T2_400_500",
+        "start_frame": 400,
+        "end_frame": 500,
+        "category": "uncategorized",
+        "error_description": "ID change #7 to #8 while dropping (-1)",
+        "notes": "#7 to #8 while dropping (-1)",
+        "manual_count": -1,
+        "system_count": -1
+      },
+      {
+        "interval_id": "AIS29T2_700_800",
+        "start_frame": 700,
+        "end_frame": 800,
+        "category": "uncategorized",
+        "error_description": "ID change #11 to #12 while dropping (-2)",
+        "notes": "ID change #11 to #12 while dropping (-2)",
+        "manual_count": -1,
+        "system_count": -1
+      },
+      {
+        "interval_id": "AIS29T2_1350_1390",
+        "start_frame": 1350,
+        "end_frame": 1390,
+        "category": "uncategorized",
+        "error_description": "ID change #17 to #18 while dropping (-3)",
+        "notes": "I#17 to #18 while dropping",
+        "manual_count": -1,
+        "system_count": -1
+      },
+      {
+        "interval_id": "AIS29T2_3000_3300",
+        "start_frame": 3000,
+        "end_frame": 3300,
+        "category": "incorrect_id_assignment",
+        "error_description": "Incorrect ID assigned (-1)",
+        "notes": "#32 repeated thrice",
+        "manual_count": -1,
+        "system_count": -1
+      },
+      {
+        "interval_id": "AIS29T2_3900_4000",
+        "start_frame": 3900,
+        "end_frame": 4000,
+        "category": "uncategorized",
+        "error_description": "ID change #38 to #39 while dropping (-2)",
+        "notes": "#38 to #39 while dropping",
+        "manual_count": -1,
+        "system_count": -1
+      },
+      {
+        "interval_id": "AIS29T2_4200_4700",
+        "start_frame": 4200,
+        "end_frame": 4700,
+        "category": "false_positive_spatter",
+        "error_description": "Incorrect ID assigned (-1)",
+        "notes": "#41 repeated thrice and #44 was false droplet",
+        "manual_count": -1,
+        "system_count": -1
+      },
+      {
+        "interval_id": "AIS29T2_4800_4900",
+        "start_frame": 4800,
+        "end_frame": 4900,
+        "category": "segmentation_errors",
+        "error_description": "Bad segmentation of #45 leads to incorrect ID' assigned (-2)",
+        "notes": "#47 was labelled 48 instead",
+        "manual_count": -1,
+        "system_count": -1
+      },
+      {
+        "interval_id": "AIS29T2_5300_5400",
+        "start_frame": 5300,
+        "end_frame": 5400,
+        "category": "incorrect_id_assignment",
+        "error_description": "Incorrect ID assigned (-1)",
+        "notes": "#51 repeated twice",
+        "manual_count": -1,
+        "system_count": -1
+      },
+      {
+        "interval_id": "AIS29T2_5750_5950",
+        "start_frame": 5750,
+        "end_frame": 5950,
+        "category": "incorrect_id_assignment",
+        "error_description": "Incorrect ID assigned (0)",
+        "notes": "#54 repeated twice",
+        "manual_count": -1,
+        "system_count": -1
+      },
+      {
+        "interval_id": "AIS29T2_6200_6300",
+        "start_frame": 6200,
+        "end_frame": 6300,
+        "category": "false_positive_spatter",
+        "error_description": "ID assigned to false droplet (-1)",
+        "notes": "#57 false droplet",
+        "manual_count": -1,
+        "system_count": -1
+      },
+      {
+        "interval_id": "AIS29T2_6500_6600",
+        "start_frame": 6500,
+        "end_frame": 6600,
+        "category": "incorrect_id_assignment",
+        "error_description": "Incorrect ID assigned #63",
+        "notes": "Labelled #63 when it should be #62",
+        "manual_count": -1,
+        "system_count": -1
+      },
+      {
+        "interval_id": "AIS29T2_6600_6750",
+        "start_frame": 6600,
+        "end_frame": 6750,
+        "category": "incorrect_id_assignment",
+        "error_description": "Incorrect ID assigned and ID change on same droplet (-4)",
+        "notes": "Labelled #65 when should be #63 and 65 changes to 66 while dropping",
+        "manual_count": -1,
+        "system_count": -1
+      },
+      {
+        "interval_id": "AIS29T2_7000_7100",
+        "start_frame": 7000,
+        "end_frame": 7100,
+        "category": "uncategorized",
+        "error_description": "ID change while dropping (-6)",
+        "notes": "#70 becomes #71 then #72 on contact",
+        "manual_count": -1,
+        "system_count": -1
+      },
+      {
+        "interval_id": "AIS29T2_7400_7500",
+        "start_frame": 7400,
+        "end_frame": 7500,
+        "category": "incorrect_id_assignment",
+        "error_description": "Incorrect ID assigned (-8)",
+        "notes": "#75 repeated twice",
+        "manual_count": -1,
+        "system_count": -1
+      },
+      {
+        "interval_id": "AIS29T2_8500_8700",
+        "start_frame": 8500,
+        "end_frame": 8700,
+        "category": "incorrect_id_assignment",
+        "error_description": "Incorrect ID assigned (-9)",
+        "notes": "#83 repeated twice",
+        "manual_count": -1,
+        "system_count": -1
+      },
+      {
+        "interval_id": "AIS29T2_8700_8750",
+        "start_frame": 8700,
+        "end_frame": 8750,
+        "category": "uncategorized",
+        "error_description": "ID change while dropping (-10)",
+        "notes": "#84 becomes #85",
+        "manual_count": -1,
+        "system_count": -1
+      },
+      {
+        "interval_id": "AIS29T2_9450_9550",
+        "start_frame": 9450,
+        "end_frame": 9550,
+        "category": "incorrect_id_assignment",
+        "error_description": "Incorrect ID assigned (-9)",
+        "notes": "#91 repeated twice",
+        "manual_count": -1,
+        "system_count": -1
+      },
+      {
+        "interval_id": "AIS29T2_11200_11300",
+        "start_frame": 11200,
+        "end_frame": 11300,
+        "category": "incorrect_id_assignment",
+        "error_description": "Incorrect ID assigned (-9)",
+        "notes": "Labelled #108 when should be #107",
+        "manual_count": -1,
+        "system_count": -1
+      },
+      {
+        "interval_id": "AIS29T2_11900_12000",
+        "start_frame": 11900,
+        "end_frame": 12000,
+        "category": "incorrect_id_assignment",
+        "error_description": "Incorrect ID assigned (-8)",
+        "notes": "#112 repeated twice",
+        "manual_count": -1,
+        "system_count": -1
+      },
+      {
+        "interval_id": "AIS29T2_13200_13400",
+        "start_frame": 13200,
+        "end_frame": 13400,
+        "category": "false_positive_spatter",
+        "error_description": "ID assigned to false droplet and #123 repeated twice (-8)",
+        "notes": "#124 assigned to false droplet",
+        "manual_count": -1,
+        "system_count": -1
+      }
+    ]
+  }
+}

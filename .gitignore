@@ -1,43 +1,18 @@
-# --- outputs / runs ---
+# Models
+efficient_track_anything/checkpoints/
+yolov11x/
+
+# Datasets
+als29t7_data/
+New_experiments_v3_final/
+ALS29T7/
+test_frames/
 outputs/
-ERRORS/
-*_arcs_pred/
-*.log
 
-# --- model weights (download from Drive, see README) ---
+# Large files
+*.parquet
 *.pt
-*.pth
-*.ckpt
-efficient_track_anything/checkpoints/*.pt
-yolov11x/*.pt
-
-# --- frame folders (datasets are not tracked) ---
-ALS28T3/
-ALS28T3_*/
-input_frames/
-*.cine
 *.mp4
-*.avi
-*.mov
-
-# --- python ---
-__pycache__/
-*.py[cod]
-*.egg-info/
-.venv/
-venv/
-.env
-
-# --- editor / OS ---
-.idea/
-.vscode/
-.DS_Store
-Thumbs.db
-outputs/ 
-test_frames/ 
-*.pt 
-__pycache__/ 
-*.pyc 
-.ipynb_checkpoints/ 
-experiment_logs/ 
-benchmark_results/ 
+*.zip
+*.7z
+*.rar

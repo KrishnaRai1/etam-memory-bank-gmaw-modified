@@ -18,3 +18,6 @@ imageio-ffmpeg         # used by file2mp4.py (needs ffmpeg binaries; bundled)
 # Config + progress
 pyyaml
 tqdm
+
+# Reporting
+matplotlib

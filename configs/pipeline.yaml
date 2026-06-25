@@ -1,6 +1,7 @@
 data:
   output_root: ./outputs
-  video_dir: C:\Users\krish\Desktop\etam-memory-bank-gmaw\test_frames
+  video_dir: ./ALS29T7
+  reference_root: ./New_experiments_v3_final
 efficienttam:
   cfg: configs/efficienttam/efficienttam_s.yaml
   ckpt: efficient_track_anything/checkpoints/efficienttam_s.pt
