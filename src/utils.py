@@ -15,7 +15,11 @@ from PIL import Image, ImageDraw, ImageFont
 
 # -------- frames --------
 def load_frame_names(video_dir: str):
-    names = [p for p in os.listdir(video_dir) if os.path.splitext(p)[-1].lower() in (".jpg", ".jpeg")]
+    names = [
+        p
+        for p in os.listdir(video_dir)
+        if os.path.splitext(p)[-1].lower() in (".jpg", ".jpeg", ".png", ".bmp")
+    ]
     def _key(p: str):
         m = re.search(r"\d+", p)
         return int(m.group()) if m else p

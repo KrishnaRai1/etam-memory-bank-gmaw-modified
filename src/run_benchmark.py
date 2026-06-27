@@ -19,9 +19,10 @@ from src.benchmark.data_validation import validate_reference_dataset, validate_i
 from src.benchmark.aggregate_report import generate_report
 from src.benchmark.manual_count_evaluator import evaluate_manual_counts
 from src.benchmark.processed_dataset_loader import discover_processed_dataset, discover_processed_datasets
-import subprocess
-from src.pipeline import run_pipeline
+from src.benchmark.video_id_matcher import normalize_video_id, find_matching_video_id
+from src.benchmark.frame_discovery import find_video_frame_dir
 from src.utils import load_frame_names
+import subprocess
 
 
 def _repo_root() -> Path:
@@ -33,42 +34,22 @@ def _load_yaml(path: Path) -> dict[str, Any]:
         return yaml.safe_load(f) or {}
 
 
-def _find_video_frame_dir(base_video_dir: Path, video_id: str) -> Path | None:
-    candidates = [
-        base_video_dir,
-        base_video_dir / video_id,
-        base_video_dir.parent / video_id,
-        _repo_root() / video_id,
-        _repo_root() / "data" / video_id,
-        _repo_root() / "frames" / video_id,
-        _repo_root() / "test_frames" / video_id,
-        _repo_root() / "outputs" / video_id,
-    ]
+def _find_video_frame_dir(base_video_dir: Path | None, reference_root: str | None, video_id: str) -> Path | None:
+    if not video_id:
+        print("[FRAME] No video_id provided for frame discovery.")
+        return None
 
-    seen: set[Path] = set()
-    for candidate in candidates:
-        try:
-            resolved = candidate.resolve(strict=False)
-        except Exception:
-            continue
-        if resolved in seen:
-            continue
-        seen.add(resolved)
-        has_frames = resolved.exists() and (
-            any(resolved.glob("*.jpg")) or any(resolved.glob("*.jpeg")) or any(resolved.glob("*.png"))
-        )
-        if has_frames:
-            return resolved
+    source_dir, diagnostics = find_video_frame_dir(base_video_dir, reference_root, video_id)
+    if diagnostics:
+        for entry in diagnostics:
+            print(f"[FRAME] candidate={entry['candidate_path']} frame_count={entry['frame_count']} reason={entry['reason']}")
 
-    if base_video_dir.exists() and base_video_dir.is_dir():
-        for child in base_video_dir.iterdir():
-            has_frames = child.is_dir() and child.name == video_id and (
-                any(child.glob("*.jpg")) or any(child.glob("*.jpeg")) or any(child.glob("*.png"))
-            )
-            if has_frames:
-                return child
+    if source_dir is None:
+        print(f"[FRAME] No frame directory found for {video_id} under {base_video_dir} or {reference_root}")
+        return None
 
-    return None
+    print(f"[FRAME] Selected frame directory for {video_id}: {source_dir}")
+    return source_dir
 
 
 def _extract_interval_frames(source_dir: Path, interval: dict[str, Any], temp_dir: Path) -> Path:
@@ -148,6 +129,7 @@ def _resolve_reference_dir(reference_root: str | None, video_id: str) -> Path | 
 
     candidate = Path(reference_root).expanduser().resolve()
     if not candidate.exists():
+        print(f"[REF] Reference root not found: {candidate}")
         return None
 
     discovered = discover_processed_dataset(candidate, video_id=video_id)
@@ -155,17 +137,43 @@ def _resolve_reference_dir(reference_root: str | None, video_id: str) -> Path | 
         resolved = Path(discovered["reference_dir"])
         if resolved.exists():
             return resolved
+        print(f"[REF] Discovered reference_dir for {video_id}, but path does not exist: {resolved}")
 
-    if candidate.is_dir() and (candidate / f"{video_id}_data").exists():
-        candidate = candidate / f"{video_id}_data"
-    elif candidate.is_dir() and candidate.name.lower().endswith("_data"):
-        pass
-    elif (candidate / video_id).exists() and (candidate / f"{video_id}_data").exists():
-        candidate = candidate / f"{video_id}_data"
-    elif (candidate / video_id).exists() and (candidate / video_id / "tracks_clean.parquet").exists():
-        candidate = candidate / video_id
-    if candidate.exists() and candidate.is_dir():
-        return candidate
+    normalized_video_id = normalize_video_id(video_id)
+    candidates: list[Path] = []
+    if candidate.is_dir():
+        candidates.extend([
+            candidate / f"{video_id}_data",
+            candidate / f"{normalized_video_id}_data",
+            candidate / video_id,
+            candidate / normalized_video_id,
+            candidate / video_id / "final",
+            candidate / normalized_video_id / "final",
+            candidate / "final",
+        ])
+
+    for path in candidates:
+        if path.exists() and path.is_dir():
+            if (path / "tracks_clean.parquet").exists():
+                return path
+            if (path / "final" / "tracks_clean.parquet").exists():
+                return path / "final"
+
+    if candidate.is_dir():
+        for child in candidate.iterdir():
+            if not child.is_dir():
+                continue
+            if normalize_video_id(child.name) == normalized_video_id:
+                if (child / "tracks_clean.parquet").exists():
+                    return child
+                if (child / "final" / "tracks_clean.parquet").exists():
+                    return child / "final"
+            if normalize_video_id(child.name).startswith(normalized_video_id) or normalized_video_id.startswith(normalize_video_id(child.name)):
+                if (child / "tracks_clean.parquet").exists():
+                    return child
+                if (child / "final" / "tracks_clean.parquet").exists():
+                    return child / "final"
+
     return None
 
 
@@ -233,26 +241,72 @@ def execute_benchmarks(
     rows: list[dict[str, Any]] = []
 
     discovered_datasets = discover_processed_datasets(reference_root) if reference_root else []
-    discovered_map = {item["video_id"].lower(): item for item in discovered_datasets if item.get("video_id")}
+    processed_ids = sorted(item["video_id"] for item in discovered_datasets if item.get("video_id"))
+    benchmark_ids = sorted(benchmarks.keys())
+    matched_video_map = {
+        vid: find_matching_video_id(vid, processed_ids)
+        for vid in benchmark_ids
+    }
+    matched_video_ids = [vid for vid, matched in matched_video_map.items() if matched is not None]
+    matched_processed_ids = sorted({matched for matched in matched_video_map.values() if matched})
+    missing_benchmark_ids = [vid for vid, matched in matched_video_map.items() if matched is None]
+    unused_processed_ids = [vid for vid in processed_ids if vid not in matched_processed_ids]
+    discovered_map = {
+        normalize_video_id(item["video_id"]): item
+        for item in discovered_datasets
+        if item.get("video_id")
+    }
+    discovered_map |= {
+        normalize_video_id(Path(item.get("reference_dir", "")).name): item
+        for item in discovered_datasets
+        if item.get("reference_dir")
+    }
+
     print(f"[Benchmark] Evaluating {sum(len(v) for v in benchmarks.values())} interval(s) across {len(benchmarks)} video(s).")
-    if discovered_datasets:
-        print(f"[Benchmark] Discovered {len(discovered_datasets)} processed datasets under {reference_root}")
+    print(f"[Benchmark] Discovered {len(discovered_datasets)} processed datasets under {reference_root}")
+    print("[Benchmark] Video ID comparison:")
+    print(f"  benchmark_ids={benchmark_ids}")
+    print(f"  processed_ids={processed_ids}")
+    print(f"  matched_ids={matched_video_ids}")
+    print(f"  benchmark_ids_missing_from_processed={missing_benchmark_ids}")
+    print(f"  processed_ids_not_referenced_by_benchmark={unused_processed_ids}")
+
+    if not matched_video_ids:
+        print("[ERROR] No benchmark video IDs match discovered processed dataset IDs. This is a DATASET COMPATIBILITY ISSUE.")
+        return {"rows": [], "summary_csv": None, "summary_json": None}
 
     for video_id_name, intervals in tqdm(benchmarks.items(), desc="Benchmark sweeps"):
-        source_dir = _find_video_frame_dir(Path(base_cfg.get("data", {}).get("video_dir", "")), video_id_name)
+        source_dir = _find_video_frame_dir(
+            Path(base_cfg.get("data", {}).get("video_dir", "")),
+            reference_root,
+            video_id_name,
+        )
         if source_dir is None or not source_dir.exists():
-            print(f"[WARN] No frame directory found for {video_id_name}; skipping this video.")
-            continue
+            print(f"[WARN] No frame directory found for {video_id_name}; trying fallback discovery from processed datasets.")
+            matched_id = find_matching_video_id(video_id_name, processed_ids)
+            if matched_id:
+                print(f"[INFO] Found processed dataset id for {video_id_name} -> {matched_id} via normalization.")
+                source_dir = _find_video_frame_dir(
+                    Path(base_cfg.get("data", {}).get("video_dir", "")),
+                    reference_root,
+                    matched_id,
+                )
+            if source_dir is None or not source_dir.exists():
+                print(f"[ERROR] No frame directory found for {video_id_name}. Searched legacy video_dir and normalized candidates.")
+                continue
 
         # Resolve and validate optional reference dataset for this video
         resolved_reference_dir = None
         if reference_root:
             resolved = _resolve_reference_dir(reference_root, video_id_name)
             if resolved is None:
-                dataset_info = discovered_map.get(video_id_name.lower())
-                if dataset_info:
+                matched_id = find_matching_video_id(video_id_name, processed_ids)
+                dataset_info = None
+                if matched_id:
+                    dataset_info = discovered_map.get(normalize_video_id(matched_id))
+                if dataset_info and dataset_info.get("reference_dir"):
                     print(f"[WARN] Reference directory for {video_id_name} not found under {reference_root}; using discovered dataset {dataset_info.get('reference_dir')}")
-                    resolved = Path(dataset_info["reference_dir"]) if dataset_info.get("reference_dir") else None
+                    resolved = Path(dataset_info["reference_dir"])
                 else:
                     print(f"[WARN] Reference directory for {video_id_name} not found under {reference_root}")
             if resolved is None:

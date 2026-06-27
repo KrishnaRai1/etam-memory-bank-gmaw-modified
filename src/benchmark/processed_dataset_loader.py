@@ -1,9 +1,12 @@
 from __future__ import annotations
 
 import json
+import re
 from datetime import datetime
 from pathlib import Path
 from typing import Any
+
+from src.benchmark.video_id_matcher import find_matching_video_id, normalize_video_id
 
 REQUIRED_REFERENCE_FILES = (
     "counts.json",
@@ -27,7 +30,16 @@ def _normalize_root(root: str | Path | None) -> Path | None:
     if root is None:
         return None
     root_path = Path(str(root)).expanduser()
-    return root_path.resolve() if root_path.exists() else root_path
+    try:
+        return root_path.resolve()
+    except Exception:
+        return root_path
+
+
+def _is_reference_dir(path: Path) -> bool:
+    if not path.exists() or not path.is_dir():
+        return False
+    return all((path / name).exists() for name in REQUIRED_REFERENCE_FILES)
 
 
 def discover_processed_dataset(root: str | Path | None, video_id: str | None = None) -> dict[str, Any]:
@@ -46,26 +58,59 @@ def discover_processed_dataset(root: str | Path | None, video_id: str | None = N
             "config_used_path": None,
         }
 
-    video_candidates = [p for p in sorted(root_path.iterdir(), key=lambda p: p.name.lower()) if p.is_dir()]
+    # If the root itself contains reference files directly, treat it as a single dataset
+    root_is_reference_dir = _is_reference_dir(root_path)
+    if root_is_reference_dir and (video_id is None or find_matching_video_id(video_id, [root_path.name]) is not None):
+        found_files = [name for name in REQUIRED_REFERENCE_FILES if (root_path / name).exists()]
+        missing_files = [name for name in REQUIRED_REFERENCE_FILES if not (root_path / name).exists()]
+        return {
+            "video_id": root_path.name,
+            "video_dir": str(root_path),
+            "timestamp": None,
+            "reference_dir": str(root_path),
+            "reference_files": list(REQUIRED_REFERENCE_FILES),
+            "found_files": found_files,
+            "missing_files": missing_files,
+            "exists": not missing_files,
+            "config_used_path": None,
+            "root": str(root_path),
+        }
+
     if video_id:
-        video_candidates = [p for p in video_candidates if p.name.lower() == str(video_id).lower()]
+        video_candidates = [
+            p for p in sorted(root_path.iterdir(), key=lambda p: p.name.lower())
+            if p.is_dir() and find_matching_video_id(video_id, [p.name]) is not None
+        ]
+    else:
+        video_candidates = [p for p in sorted(root_path.iterdir(), key=lambda p: p.name.lower()) if p.is_dir()]
 
     for video_path in video_candidates:
+        # support both dataset root/video_id/timestamp/final and dataset root/video_id/final structures
         timestamp_dirs = [p for p in sorted(video_path.iterdir(), key=lambda p: p.name.lower()) if p.is_dir()]
-        if not timestamp_dirs:
-            continue
-        timestamp_dir = max(timestamp_dirs, key=_timestamp_sort_key)
-        reference_dir = timestamp_dir / "final"
-        if not reference_dir.exists():
+        candidate_dirs = []
+        for p in timestamp_dirs:
+            if p.name.lower() == "final":
+                candidate_dirs.append(p)
+            else:
+                final_dir = p / "final"
+                if final_dir.exists() and final_dir.is_dir():
+                    candidate_dirs.append(final_dir)
+        if not candidate_dirs:
+            # also support direct output under video_path
+            if _is_reference_dir(video_path):
+                candidate_dirs.append(video_path)
+        if not candidate_dirs:
             continue
 
+        chosen = max(candidate_dirs, key=lambda p: _timestamp_sort_key(p.parent if p.name.lower() == "final" else p))
+        reference_dir = chosen
         found_files = [name for name in REQUIRED_REFERENCE_FILES if (reference_dir / name).exists()]
         missing_files = [name for name in REQUIRED_REFERENCE_FILES if not (reference_dir / name).exists()]
-        config_path = timestamp_dir / "config_used.json"
+        config_path = reference_dir.parent / "config_used.json"
         return {
             "video_id": video_path.name,
             "video_dir": str(video_path),
-            "timestamp": timestamp_dir.name,
+            "timestamp": str(chosen.parent.name) if chosen.parent else None,
             "reference_dir": str(reference_dir),
             "reference_files": list(REQUIRED_REFERENCE_FILES),
             "found_files": found_files,
@@ -95,6 +140,12 @@ def discover_processed_datasets(root: str | Path | None) -> list[dict[str, Any]]
         return []
 
     datasets: list[dict[str, Any]] = []
+    if _is_reference_dir(root_path):
+        discovery = discover_processed_dataset(root_path, video_id=root_path.name)
+        if discovery.get("reference_dir"):
+            datasets.append(discovery)
+        return datasets
+
     for video_path in sorted(root_path.iterdir(), key=lambda p: p.name.lower()):
         if not video_path.is_dir():
             continue

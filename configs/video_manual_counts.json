@@ -1,0 +1,39 @@
+{
+  "video_manual_counts": {
+    "20": 20,
+    "96": 84,
+    "147": -1,
+    "119": -1,
+    "173": 179,
+    "35": 34,
+    "56": 57,
+    "179": 185,
+    "165": 157,
+    "68": 72,
+    "32": 40,
+    "121": 116,
+    "177": 179,
+    "146": 146,
+    "70": 71,
+    "184": 183,
+    "125": 129,
+    "62": 63,
+    "145": 156,
+    "101": 116,
+    "110": 121,
+    "138": 151,
+    "132": 140
+  },
+  "conflicts": {
+    "147": [
+      -1
+    ],
+    "119": [
+      -1
+    ]
+  },
+  "sources": [
+    "C:\\Users\\krish\\Desktop\\etam-memory-bank-gmaw\\Exploratory Data Analysis (EDA)_Data Annotation.csv",
+    "C:\\Users\\krish\\Desktop\\etam-memory-bank-gmaw\\Exploratory Data Analysis (EDA)_Data Annotation.xlsx"
+  ]
+}
