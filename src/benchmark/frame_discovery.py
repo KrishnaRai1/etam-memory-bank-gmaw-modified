@@ -16,13 +16,13 @@ def _is_image_file(path: Path) -> bool:
 def _is_frame_dir(path: Path) -> bool:
     if not path.exists() or not path.is_dir():
         return False
-    return any(p for p in path.iterdir() if _is_image_file(p))
+    return any(_is_image_file(p) for p in path.rglob("*") if p.is_file())
 
 
 def _frame_count(path: Path) -> int:
     if not path.exists() or not path.is_dir():
         return 0
-    return sum(1 for p in path.iterdir() if _is_image_file(p))
+    return sum(1 for p in path.rglob("*") if _is_image_file(p))
 
 
 def _gather_candidates(root: Path, video_id: str, max_depth: int = 3) -> list[tuple[Path, str]]:

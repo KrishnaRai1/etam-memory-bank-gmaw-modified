@@ -36,10 +36,34 @@ def _normalize_root(root: str | Path | None) -> Path | None:
         return root_path
 
 
-def _is_reference_dir(path: Path) -> bool:
+def _find_reference_dir(path: Path) -> Path | None:
     if not path.exists() or not path.is_dir():
-        return False
-    return all((path / name).exists() for name in REQUIRED_REFERENCE_FILES)
+        return None
+    direct = all((path / name).exists() for name in REQUIRED_REFERENCE_FILES)
+    if direct:
+        return path
+    final = path / "final"
+    if final.exists() and final.is_dir() and all((final / name).exists() for name in REQUIRED_REFERENCE_FILES):
+        return final
+    return None
+
+
+def _is_reference_dir(path: Path) -> bool:
+    return _find_reference_dir(path) is not None
+
+
+def resolve_reference_dir(root: str | Path | None, video_id: str | None = None) -> Path | None:
+    root_path = _normalize_root(root)
+    if root_path is None or not root_path.exists():
+        return None
+    reference_dir = _find_reference_dir(root_path)
+    if reference_dir is None:
+        return None
+    if video_id is None:
+        return reference_dir
+    if find_matching_video_id(video_id, [root_path.name]) is not None:
+        return reference_dir
+    return None
 
 
 def discover_processed_dataset(root: str | Path | None, video_id: str | None = None) -> dict[str, Any]:
@@ -58,16 +82,15 @@ def discover_processed_dataset(root: str | Path | None, video_id: str | None = N
             "config_used_path": None,
         }
 
-    # If the root itself contains reference files directly, treat it as a single dataset
-    root_is_reference_dir = _is_reference_dir(root_path)
-    if root_is_reference_dir and (video_id is None or find_matching_video_id(video_id, [root_path.name]) is not None):
-        found_files = [name for name in REQUIRED_REFERENCE_FILES if (root_path / name).exists()]
-        missing_files = [name for name in REQUIRED_REFERENCE_FILES if not (root_path / name).exists()]
+    direct_reference_dir = _find_reference_dir(root_path)
+    if direct_reference_dir is not None and (video_id is None or find_matching_video_id(video_id, [root_path.name]) is not None):
+        found_files = [name for name in REQUIRED_REFERENCE_FILES if (direct_reference_dir / name).exists()]
+        missing_files = [name for name in REQUIRED_REFERENCE_FILES if not (direct_reference_dir / name).exists()]
         return {
             "video_id": root_path.name,
             "video_dir": str(root_path),
             "timestamp": None,
-            "reference_dir": str(root_path),
+            "reference_dir": str(direct_reference_dir),
             "reference_files": list(REQUIRED_REFERENCE_FILES),
             "found_files": found_files,
             "missing_files": missing_files,
@@ -140,16 +163,17 @@ def discover_processed_datasets(root: str | Path | None) -> list[dict[str, Any]]
         return []
 
     datasets: list[dict[str, Any]] = []
-    if _is_reference_dir(root_path):
+    direct_reference_dir = _find_reference_dir(root_path)
+    if direct_reference_dir is not None:
         discovery = discover_processed_dataset(root_path, video_id=root_path.name)
         if discovery.get("reference_dir"):
             datasets.append(discovery)
         return datasets
 
-    for video_path in sorted(root_path.iterdir(), key=lambda p: p.name.lower()):
-        if not video_path.is_dir():
+    for child in sorted(root_path.iterdir(), key=lambda p: p.name.lower()):
+        if not child.is_dir():
             continue
-        discovery = discover_processed_dataset(root_path, video_id=video_path.name)
+        discovery = discover_processed_dataset(child, video_id=child.name)
         if discovery.get("reference_dir"):
             datasets.append(discovery)
     return datasets

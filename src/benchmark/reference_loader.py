@@ -6,8 +6,8 @@ from typing import Iterable
 
 import pandas as pd
 
-from src.benchmark.processed_dataset_loader import discover_processed_dataset
-from src.benchmark.video_id_matcher import normalize_video_id
+from src.benchmark.processed_dataset_loader import discover_processed_dataset, resolve_reference_dir
+from src.benchmark.video_id_matcher import normalize_video_id, find_matching_video_id
 
 
 def _load_parquet(path: Path) -> pd.DataFrame:
@@ -36,6 +36,10 @@ def _validate_columns(df: pd.DataFrame, required: Iterable[str], path: Path) -> 
 
 
 def _resolve_reference_dir(reference_root: Path, video_id: str | None = None) -> Path:
+    resolved = resolve_reference_dir(reference_root, video_id)
+    if resolved is not None:
+        return resolved
+
     candidates = [reference_root]
     if video_id:
         candidates += [reference_root / f"{video_id}_data", reference_root / video_id, reference_root / video_id / "data"]
@@ -51,11 +55,6 @@ def _resolve_reference_dir(reference_root: Path, video_id: str | None = None) ->
             resolved = Path(discovered["reference_dir"])
             if resolved.exists():
                 return resolved
-
-    # If reference_root itself is already a final dataset and matches video_id, accept it
-    if reference_root.exists() and reference_root.is_dir() and (reference_root / "tracks_clean.parquet").exists():
-        if video_id is None or find_matching_video_id(video_id, [reference_root.name]) is not None:
-            return reference_root
 
     raise FileNotFoundError(
         f"Could not resolve reference dataset directory from {reference_root} "

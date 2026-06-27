@@ -15,16 +15,17 @@ from PIL import Image, ImageDraw, ImageFont
 
 # -------- frames --------
 def load_frame_names(video_dir: str):
-    names = [
-        p
-        for p in os.listdir(video_dir)
-        if os.path.splitext(p)[-1].lower() in (".jpg", ".jpeg", ".png", ".bmp")
-    ]
+    root = Path(video_dir).expanduser()
+    image_paths = []
+    for ext in ("*.jpg", "*.jpeg", "*.png", "*.bmp"):
+        image_paths.extend(root.rglob(ext))
+    frame_names = [str(p.relative_to(root)) for p in image_paths if p.is_file()]
+
     def _key(p: str):
         m = re.search(r"\d+", p)
         return int(m.group()) if m else p
-    names.sort(key=_key)
-    return names
+    frame_names.sort(key=_key)
+    return frame_names
 
 def ensure_run_dir(output_root: str) -> Path:
     run_dir = Path(output_root) / time.strftime("%Y-%m-%d_%H-%M-%S")
