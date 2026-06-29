@@ -378,6 +378,8 @@ def execute_benchmarks(
                         })
                         continue
 
+                    from .pipeline import run_pipeline
+
                     run_dir = benchmark_runs_root / video_id_name / interval_id_name / f"skip_{skip_value}"
                     run_dir.mkdir(parents=True, exist_ok=True)
                     out_dir = run_pipeline(cfg=cfg, frame_start=0, frame_end=None, force_run_dir=run_dir)
