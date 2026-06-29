@@ -496,13 +496,28 @@ def execute_benchmarks(
                             reference_metrics["avg_centroid_distance"] = reference_metrics.get("avg_centroid_distance") or track_metrics.get("avg_centroid_deviation")
                             reference_metrics["track_continuity"] = track_metrics.get("track_continuity")
 
+                            if (out_dir / "count_metrics.json").exists():
+                                reference_metrics["count_metrics"] = json.loads((out_dir / "count_metrics.json").read_text(encoding="utf-8"))
+                            if (out_dir / "mask_metrics.json").exists():
+                                reference_metrics["mask_metrics"] = json.loads((out_dir / "mask_metrics.json").read_text(encoding="utf-8"))
+                            if (out_dir / "track_metrics.json").exists():
+                                reference_metrics["track_metrics"] = json.loads((out_dir / "track_metrics.json").read_text(encoding="utf-8"))
+
                             try:
                                 from src.benchmark.count_metrics import compute_interval_reference_count
                                 interval_reference_count = compute_interval_reference_count(ref_tracks, int(interval.get("start_frame", 0)), int(interval.get("end_frame", 0)))
                             except Exception:
                                 interval_reference_count = None
                             metrics["benchmark_interval_reference_count"] = interval_reference_count
-                            metrics["benchmark_count_error"] = None if interval_reference_count is None else int(metrics.get("droplet_count", 0)) - int(interval_reference_count)
+                            benchmark_manual_count = metrics.get("benchmark_manual_count", interval.get("manual_count", -1))
+                            if benchmark_manual_count is None or int(benchmark_manual_count) < 0:
+                                benchmark_manual_count = None
+                            if interval_reference_count is not None:
+                                metrics["benchmark_count_error"] = int(metrics.get("droplet_count", 0)) - int(interval_reference_count)
+                            elif benchmark_manual_count is not None:
+                                metrics["benchmark_count_error"] = int(metrics.get("droplet_count", 0)) - int(benchmark_manual_count)
+                            else:
+                                metrics["benchmark_count_error"] = None
                         except Exception as exc:
                             print(f"[WARN] Reference benchmark evaluation failed for {video_id_name}: {exc}")
 
@@ -518,10 +533,10 @@ def execute_benchmarks(
                         "propagation_calls": int(metrics.get("stage3_propagation_calls", 0) or 0),
                         "cache_hits": int(metrics.get("stage3_cache_hits", 0) or 0),
                         "cache_misses": int(metrics.get("stage3_cache_misses", 0) or 0),
-                        "mean_iou": reference_metrics["mean_iou"],
-                        "mean_dice": reference_metrics["mean_dice"],
-                        "avg_centroid_distance": reference_metrics["avg_centroid_distance"],
-                        "track_continuity": reference_metrics["track_continuity"],
+                        "mean_iou": reference_metrics.get("mask_metrics", {}).get("mean_iou") if reference_metrics.get("mask_metrics") else reference_metrics.get("mean_iou"),
+                        "mean_dice": reference_metrics.get("mask_metrics", {}).get("mean_dice") if reference_metrics.get("mask_metrics") else reference_metrics.get("mean_dice"),
+                        "avg_centroid_distance": reference_metrics.get("mask_metrics", {}).get("mean_centroid_distance") if reference_metrics.get("mask_metrics") else reference_metrics.get("avg_centroid_distance"),
+                        "track_continuity": reference_metrics.get("track_metrics", {}).get("track_continuity") if reference_metrics.get("track_metrics") else reference_metrics.get("track_continuity"),
                     }
                     rows.append(row)
                     # augment with runtime-per-frame and stage runtimes when available
@@ -533,7 +548,12 @@ def execute_benchmarks(
                     rows[-1]["stage1_runtime"] = metrics.get("stage1_runtime")
                     rows[-1]["stage2_runtime"] = metrics.get("stage2_runtime")
                     rows[-1]["stage3_runtime"] = metrics.get("stage3_runtime") or rows[-1].get("stage3_runtime")
-                    rows[-1]["count_error"] = metrics.get("benchmark_count_error")
+                    count_error_value = None
+                    if reference_metrics.get("count_metrics") is not None:
+                        count_error_value = reference_metrics["count_metrics"].get("count_error")
+                    if count_error_value is None and metrics.get("benchmark_count_error") is not None:
+                        count_error_value = metrics.get("benchmark_count_error")
+                    rows[-1]["count_error"] = int(count_error_value) if count_error_value is not None else None
                     print(f"[OK] Recorded skip={skip_value}, runtime={rows[-1]['total_runtime']:.2f}s")
                 except Exception as exc:
                     print(f"[ERROR] Failed interval {interval_id_name} with memory_update_skip={skip_value}: {exc}")

@@ -40,6 +40,12 @@ def aggregate_results(benchmark_runs_root: str | Path, output_dir: str | Path) -
         exp_log_path = _experiment_log_path(skip_dir)
         exp_metrics = _load_json(exp_log_path) if exp_log_path else {}
 
+        def _maybe_int(value):
+            return int(value) if value is not None else None
+
+        def _maybe_float(value):
+            return float(value) if value is not None else None
+
         row = {
             "video_id": video_id,
             "interval_id": interval_id,
@@ -54,11 +60,11 @@ def aggregate_results(benchmark_runs_root: str | Path, output_dir: str | Path) -
             "computed_frames": int(exp_metrics.get("stage3_computed_frames", 0) or 0),
             "new_seeds": int(exp_metrics.get("stage3_new_seeds", 0) or 0),
             "droplet_count": int(exp_metrics.get("droplet_count", 0) or 0),
-            "reference_droplet_count": int(count_metrics.get("reference_droplet_count", 0) or 0),
-            "tracked_droplet_count": int(count_metrics.get("tracked_droplet_count", 0) or 0),
-            "count_error": int(count_metrics.get("count_error", 0) or 0),
-            "absolute_error": int(count_metrics.get("absolute_error", 0) or 0),
-            "relative_error": float(count_metrics.get("relative_error", 0.0) or 0.0),
+            "reference_droplet_count": _maybe_int(count_metrics.get("reference_droplet_count")),
+            "tracked_droplet_count": _maybe_int(count_metrics.get("tracked_droplet_count")),
+            "count_error": _maybe_int(count_metrics.get("count_error")),
+            "absolute_error": _maybe_int(count_metrics.get("absolute_error")),
+            "relative_error": _maybe_float(count_metrics.get("relative_error")),
             "mean_iou": float(mask_metrics.get("mean_iou", 0.0) or 0.0),
             "mean_dice": float(mask_metrics.get("mean_dice", 0.0) or 0.0),
             "mean_centroid_distance": float(mask_metrics.get("mean_centroid_distance", 0.0) or 0.0),

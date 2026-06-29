@@ -162,13 +162,27 @@ def generate_report(summary_json: Path, runs_root: Path, out_root: Path, generat
     out_json = out_root / 'benchmark_report.json'
     out_json.write_text(json.dumps(report, indent=2), encoding='utf-8')
 
-    # create simple HTML report with matplotlib plots
+    def _render_table(title: str, values: dict[str, Any]) -> str:
+        html = f"<h3>{title}</h3>"
+        html += "<table border='1' cellspacing='0' cellpadding='4' style='border-collapse:collapse'>"
+        html += "<tr><th>Metric</th><th>Value</th></tr>"
+        for key, value in sorted(values.items()):
+            html += f"<tr><td>{key}</td><td>{value if value is not None else 'N/A'}</td></tr>"
+        html += "</table>"
+        return html
+
     html_path = out_root / 'benchmark_report.html'
     generated_assets: list[Path] = []
     with open(html_path, 'w', encoding='utf-8') as fh:
         fh.write('<html><head><title>Benchmark Report</title></head><body>')
         fh.write(f"<h1>Benchmark Report</h1>")
+        fh.write(f"<p><a href='benchmark_report.json'>View raw benchmark_report.json</a></p>")
         fh.write(f"<h2>Dataset</h2><p>Videos: {report['dataset_summary']['videos_evaluated']}, Intervals: {report['dataset_summary']['intervals_evaluated']}</p>")
+        fh.write(_render_table('Dataset Summary', report['dataset_summary']))
+        fh.write(_render_table('Runtime Summary', runtime_summary))
+        fh.write(_render_table('Count Summary', count_summary))
+        fh.write(_render_table('Mask Summary', mask_summary))
+        fh.write(_render_table('Track Summary', track_summary))
 
         # runtime plot
         if 'total_runtime' in df.columns:
