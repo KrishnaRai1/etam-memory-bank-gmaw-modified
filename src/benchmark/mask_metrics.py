@@ -9,6 +9,8 @@ from typing import Any
 import numpy as np
 import pandas as pd
 
+from src.benchmark.ontology import filter_semantic_droplets
+
 
 @dataclass
 class MaskObject:
@@ -27,6 +29,20 @@ def _infer_frame_column(df: pd.DataFrame) -> str:
         if candidate in df.columns:
             return candidate
     raise ValueError(f"Mask dataframe is missing a frame index column. Found columns: {list(df.columns)}")
+
+
+def _infer_id_column(df: pd.DataFrame) -> str:
+    for candidate in ("global_id", "id", "track_id", "droplet_id", "obj_id"):
+        if candidate in df.columns:
+            return candidate
+    raise ValueError(f"Mask dataframe is missing an ID column. Found columns: {list(df.columns)}")
+
+
+def _infer_class_column(df: pd.DataFrame) -> str | None:
+    for candidate in ("class_id", "cls_id"):
+        if candidate in df.columns:
+            return candidate
+    return None
 
 
 def _row_mask_coords(row: pd.Series, width: int | None = None) -> set[tuple[int, int]]:
@@ -69,6 +85,7 @@ def _pairwise_stats(ref_mask: set[tuple[int, int]], pred_mask: set[tuple[int, in
 
 def _build_frame_objects(df: pd.DataFrame, width: int | None = None, label_prefix: str = "") -> dict[int, list[MaskObject]]:
     frame_col = _infer_frame_column(df)
+    id_col = _infer_id_column(df)
     objs: dict[int, list[MaskObject]] = defaultdict(list)
     for _, row in df.iterrows():
         frame_idx = int(row[frame_col])
@@ -78,7 +95,7 @@ def _build_frame_objects(df: pd.DataFrame, width: int | None = None, label_prefi
             area = int(row["area_px"])
         mask_obj = MaskObject(
             frame_idx=frame_idx,
-            obj_id=int(row["id"]) if "id" in row.index and pd.notna(row["id"]) else row.get("local_id", row.get("obj_id", "unknown")),
+            obj_id=int(row[id_col]) if pd.notna(row[id_col]) else row.get("local_id", row.get("obj_id", "unknown")),
             mask_px=row.get("mask_px") if "mask_px" in row.index else None,
             ys=np.asarray(row["ys"]).astype(int) if "ys" in row.index and row["ys"] is not None else None,
             xs=np.asarray(row["xs"]).astype(int) if "xs" in row.index and row["xs"] is not None else None,
@@ -90,9 +107,46 @@ def _build_frame_objects(df: pd.DataFrame, width: int | None = None, label_prefi
     return objs
 
 
-def compute_mask_metrics(reference_masks: pd.DataFrame, predicted_masks: pd.DataFrame, width: int | None = None) -> dict[str, Any]:
-    ref_objs = _build_frame_objects(reference_masks, width=width, label_prefix="ref")
-    pred_objs = _build_frame_objects(predicted_masks, width=width, label_prefix="pred")
+def _filter_droplets(df: pd.DataFrame) -> pd.DataFrame:
+    return filter_semantic_droplets(df)
+
+
+def _frame_alignment(ref_frames: set[int], pred_frames: set[int]) -> dict[str, Any]:
+    if not ref_frames or not pred_frames:
+        return {
+            "reference_frame_count": len(ref_frames),
+            "predicted_frame_count": len(pred_frames),
+            "offset": None,
+            "matched": False,
+            "issues": ["missing_reference_or_predicted_frames"],
+        }
+    ref_sorted = sorted(ref_frames)
+    pred_sorted = sorted(pred_frames)
+    offsets = []
+    for ref_frame, pred_frame in zip(ref_sorted[:min(len(ref_sorted), len(pred_sorted), 10)], pred_sorted[:min(len(ref_sorted), len(pred_sorted), 10)]):
+        offsets.append(int(pred_frame - ref_frame))
+    offset = int(round(float(np.median(offsets)))) if offsets else 0
+    matched = offset == 0
+    issues = [] if matched else [f"frame_offset_detected:{offset}"]
+    return {
+        "reference_frame_count": len(ref_frames),
+        "predicted_frame_count": len(pred_frames),
+        "offset": offset,
+        "matched": matched,
+        "issues": issues,
+    }
+
+
+def compute_mask_metrics(reference_masks: pd.DataFrame, predicted_masks: pd.DataFrame, width: int | None = None, interval_frames: set[int] | None = None) -> dict[str, Any]:
+    ref_masks = _filter_droplets(reference_masks)
+    if interval_frames is not None:
+        frame_col = _infer_frame_column(ref_masks)
+        ref_masks = ref_masks[ref_masks[frame_col].isin(interval_frames)].copy()
+    if interval_frames is not None and ref_masks.empty:
+        ref_masks = ref_masks.iloc[0:0].copy()
+    pred_masks = _filter_droplets(predicted_masks)
+    ref_objs = _build_frame_objects(ref_masks, width=width, label_prefix="ref")
+    pred_objs = _build_frame_objects(pred_masks, width=width, label_prefix="pred")
 
     ious = []
     dices = []
@@ -101,6 +155,7 @@ def compute_mask_metrics(reference_masks: pd.DataFrame, predicted_masks: pd.Data
     matched = 0
     total_pred_masks = sum(len(v) for v in pred_objs.values())
     total_ref_masks = sum(len(v) for v in ref_objs.values())
+    alignment = _frame_alignment(set(ref_objs.keys()), set(pred_objs.keys()))
 
     for frame_idx, preds in pred_objs.items():
         refs = ref_objs.get(frame_idx, [])
@@ -140,12 +195,13 @@ def compute_mask_metrics(reference_masks: pd.DataFrame, predicted_masks: pd.Data
         "reference_mask_count": total_ref_masks,
         "predicted_mask_count": total_pred_masks,
         "matched_mask_count": matched,
-        "mean_iou": float(np.mean(ious)) if ious else 0.0,
-        "mean_dice": float(np.mean(dices)) if dices else 0.0,
-        "mean_centroid_distance": float(np.mean(centroid_distances)) if centroid_distances else 0.0,
-        "mean_area_difference": float(np.mean(area_diffs)) if area_diffs else 0.0,
-        "reference_match_rate": float(matched / total_ref_masks) if total_ref_masks else 0.0,
-        "predicted_match_rate": float(matched / total_pred_masks) if total_pred_masks else 0.0,
+        "frame_alignment": alignment,
+        "mean_iou": float(np.mean(ious)) if ious else None,
+        "mean_dice": float(np.mean(dices)) if dices else None,
+        "mean_centroid_distance": float(np.mean(centroid_distances)) if centroid_distances else None,
+        "mean_area_difference": float(np.mean(area_diffs)) if area_diffs else None,
+        "reference_match_rate": float(matched / total_ref_masks) if total_ref_masks else None,
+        "predicted_match_rate": float(matched / total_pred_masks) if total_pred_masks else None,
     }
     return metrics
 

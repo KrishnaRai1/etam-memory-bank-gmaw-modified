@@ -35,6 +35,19 @@ def _validate_columns(df: pd.DataFrame, required: Iterable[str], path: Path) -> 
         )
 
 
+def _normalize_reference_tracks(df: pd.DataFrame) -> pd.DataFrame:
+    normalized = df.copy()
+    if "abs_frame" not in normalized.columns and "frame_idx" in normalized.columns:
+        normalized = normalized.rename(columns={"frame_idx": "abs_frame"})
+    if "frame_idx" not in normalized.columns and "abs_frame" in normalized.columns:
+        normalized["frame_idx"] = normalized["abs_frame"]
+    if "global_id" not in normalized.columns and "id" in normalized.columns:
+        normalized["global_id"] = normalized["id"]
+    if "id" not in normalized.columns and "global_id" in normalized.columns:
+        normalized["id"] = normalized["global_id"]
+    return normalized
+
+
 def _resolve_reference_dir(reference_root: Path, video_id: str | None = None) -> Path:
     resolved = resolve_reference_dir(reference_root, video_id)
     if resolved is not None:
@@ -80,10 +93,8 @@ def load_tracks_clean(reference_root: str | Path, video_id: str | None = None) -
     reference_root = Path(reference_root).expanduser().resolve()
     reference_dir = _resolve_reference_dir(reference_root, video_id)
     path = reference_dir / "tracks_clean.parquet"
-    df = _load_parquet(path)
-    required = ["id", "frame_idx"]
-    if "frame_idx" not in df.columns and "abs_frame" in df.columns:
-        df = df.rename(columns={"abs_frame": "frame_idx"})
+    df = _normalize_reference_tracks(_load_parquet(path))
+    required = ["global_id", "abs_frame", "mask_px", "class_id"]
     _validate_columns(df, required, path)
     _print_summary("tracks_clean", df, path)
     return df
@@ -92,20 +103,15 @@ def load_tracks_clean(reference_root: str | Path, video_id: str | None = None) -
 def load_seg_masks(reference_root: str | Path, video_id: str | None = None) -> pd.DataFrame:
     reference_root = Path(reference_root).expanduser().resolve()
     reference_dir = _resolve_reference_dir(reference_root, video_id)
-    path = reference_dir / "seg_masks.parquet"
-    df = _load_parquet(path)
-    if "frame_idx" not in df.columns and "abs_frame" in df.columns:
-        df = df.rename(columns={"abs_frame": "frame_idx"})
-
-    if not any(col in df.columns for col in ("mask_px", "ys", "xs")):
-        raise ValueError(
-            f"Reference seg_masks.parquet {path} must contain 'mask_px' or both 'ys' and 'xs'. "
-            f"Found columns: {list(df.columns)}"
-        )
-
-    required = ["frame_idx"]
+    path = reference_dir / "tracks_clean.parquet"
+    df = _normalize_reference_tracks(_load_parquet(path))
+    required = ["global_id", "abs_frame", "mask_px", "class_id"]
     _validate_columns(df, required, path)
-    _print_summary("seg_masks", df, path)
+    if "class_id" in df.columns:
+        df = df[df["class_id"] == 3].copy()
+    if df.empty:
+        raise ValueError(f"No droplet reference rows (class_id == 3) found in {path}")
+    _print_summary("droplet_reference_masks", df, path)
     return df
 
 

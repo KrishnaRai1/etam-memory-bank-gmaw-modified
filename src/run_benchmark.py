@@ -13,6 +13,8 @@ from tqdm import tqdm
 
 from src.benchmark.count_metrics import compute_count_metrics, save_count_metrics
 from src.benchmark.mask_metrics import compute_mask_metrics, save_mask_metrics
+from src.benchmark.ontology import explain_class_alignment
+from src.benchmark.frame_alignment import remap_prediction_frames_to_reference
 from src.benchmark.reference_loader import load_seg_masks, load_tracks_clean
 from src.benchmark.track_metrics import compute_track_metrics, save_track_metrics
 from src.benchmark.data_validation import validate_reference_dataset, validate_interval_bounds
@@ -204,6 +206,26 @@ def _load_frames_meta(run_dir: Path) -> dict[str, Any] | None:
         return None
 
 
+def _validate_benchmark_outputs(output_root: Path, run_dir: Path | None, report_json: Path, dry_run: bool = False) -> None:
+    required_paths = [
+        output_root / "benchmark_summary" / "benchmark_summary.csv",
+        output_root / "benchmark_summary" / "benchmark_summary.json",
+        output_root / "benchmark_summary" / "benchmark_report.json",
+        output_root / "benchmark_summary" / "benchmark_report.html",
+        output_root / "manual_count_metrics.json",
+    ]
+    if not dry_run and run_dir is not None:
+        required_paths.extend([run_dir / "tracks.parquet", run_dir / "trajectories.csv"])
+    for path in required_paths:
+        if not path.exists() or path.stat().st_size <= 0:
+            raise RuntimeError(f"Required benchmark output missing or empty: {path}")
+    html_text = (output_root / "benchmark_summary" / "benchmark_report.html").read_text(encoding="utf-8")
+    if "<html" not in html_text.lower() or "</html>" not in html_text.lower():
+        raise RuntimeError(f"Invalid HTML report: {output_root / 'benchmark_summary' / 'benchmark_report.html'}")
+    if not report_json.exists() or report_json.stat().st_size <= 0:
+        raise RuntimeError(f"Benchmark report JSON missing or empty: {report_json}")
+
+
 def execute_benchmarks(
     pipeline_cfg_path: str,
     benchmark_yaml_path: str,
@@ -341,7 +363,7 @@ def execute_benchmarks(
                 vres = validate_reference_dataset(resolved)
                 if not vres.ok:
                     print(f"[WARN] Reference dataset validation failed for {video_id_name}: {vres.issues}")
-                    resolved = None
+                    print("[INFO] Continuing with evaluation and reporting the compatibility issues instead of blocking the run")
                 else:
                     print(f"[OK] Reference dataset validated for {video_id_name}")
             resolved_reference_dir = resolved
@@ -407,27 +429,80 @@ def execute_benchmarks(
                     if resolved_reference_dir:
                         try:
                             predicted_tracks = _load_run_tracks(out_dir)
-                            ref_tracks = load_tracks_clean(resolved_reference_dir)
-                            ref_masks = load_seg_masks(resolved_reference_dir)
+                            ref_tracks = load_tracks_clean(resolved_reference_dir, video_id_name)
+                            ref_masks = load_seg_masks(resolved_reference_dir, video_id_name)
+                            reference_frame_values = set(int(v) for v in ref_tracks["abs_frame"].dropna().astype(int).tolist()) if "abs_frame" in ref_tracks.columns else None
+                            predicted_tracks = remap_prediction_frames_to_reference(
+                                predicted_tracks,
+                                frame_offset=None,
+                                reference_frames=reference_frame_values,
+                            )
                             frames_meta = _load_frames_meta(out_dir)
                             width = 0
                             if frames_meta and isinstance(frames_meta.get("image_size"), dict):
                                 width = int(frames_meta["image_size"].get("W", 0) or 0)
 
-                            count_metrics = compute_count_metrics(ref_tracks, predicted_tracks)
+                            print(f"[EVAL] reference class alignment: {explain_class_alignment(ref_tracks)}")
+                            print(f"[EVAL] predicted class alignment: {explain_class_alignment(predicted_tracks)}")
+
+                            if "frame_idx" in ref_tracks.columns and "frame_idx" in predicted_tracks.columns:
+                                ref_frames = set(int(v) for v in ref_tracks["frame_idx"].dropna().astype(int).tolist())
+                                pred_frames = set(int(v) for v in predicted_tracks["frame_idx"].dropna().astype(int).tolist())
+                                print(f"[EVAL] frame index overlap: reference={len(ref_frames)} predicted={len(pred_frames)} common={len(ref_frames & pred_frames)}")
+                                print(f"[EVAL] frame index range reference={min(ref_frames)}..{max(ref_frames)} predicted={min(pred_frames)}..{max(pred_frames)}")
+                            else:
+                                print("[EVAL] frame index compatibility could not be checked because one or both dataframes lacked a frame_idx column")
+
+                            def _describe_mask_geometry(df: pd.DataFrame) -> dict[str, Any]:
+                                info: dict[str, Any] = {}
+                                for field in ("mask_px", "ys", "xs", "centroid_x", "centroid_y", "area_px"):
+                                    info[field] = field in df.columns
+                                if "width" in df.columns:
+                                    info["width_values"] = sorted({int(v) for v in df["width"].dropna().astype(int).tolist()})
+                                if "height" in df.columns:
+                                    info["height_values"] = sorted({int(v) for v in df["height"].dropna().astype(int).tolist()})
+                                return info
+
+                            print(f"[EVAL] reference mask geometry: {_describe_mask_geometry(ref_tracks)}")
+                            print(f"[EVAL] predicted mask geometry: {_describe_mask_geometry(predicted_tracks)}")
+
+                            interval_frames = set(int(v) for v in predicted_tracks["abs_frame"].dropna().astype(int).tolist()) if "abs_frame" in predicted_tracks.columns else None
+                            if interval_frames is None and "rel_frame" in predicted_tracks.columns:
+                                interval_frames = set(int(v) for v in predicted_tracks["rel_frame"].dropna().astype(int).tolist())
+                            if interval_frames is None and "frame_idx" in predicted_tracks.columns:
+                                interval_frames = set(int(v) for v in predicted_tracks["frame_idx"].dropna().astype(int).tolist())
+
+                            count_metrics = compute_count_metrics(ref_tracks, predicted_tracks, interval_frames=interval_frames)
                             save_count_metrics(count_metrics, out_dir / "count_metrics.json")
 
-                            mask_metrics = compute_mask_metrics(ref_masks, predicted_tracks, width=width)
+                            mask_metrics = compute_mask_metrics(ref_masks, predicted_tracks, width=width, interval_frames=interval_frames)
                             save_mask_metrics(mask_metrics, out_dir / "mask_metrics.json")
                             reference_metrics["mean_iou"] = mask_metrics.get("mean_iou")
                             reference_metrics["mean_dice"] = mask_metrics.get("mean_dice")
                             reference_metrics["avg_centroid_distance"] = mask_metrics.get("mean_centroid_distance")
 
-                            track_metrics = compute_track_metrics(ref_tracks, predicted_tracks)
+                            if mask_metrics.get("reference_mask_count", 0) <= 0 or mask_metrics.get("predicted_mask_count", 0) <= 0:
+                                print("[EVAL] mask metrics are null or zero because either the reference or predicted droplet masks were empty after semantic filtering")
+                            if mask_metrics.get("frame_alignment", {}).get("issues"):
+                                print(f"[EVAL] frame alignment issues: {mask_metrics['frame_alignment']['issues']}")
+                            if interval_frames is not None and "abs_frame" in ref_tracks.columns:
+                                ref_frame_values = set(int(v) for v in ref_tracks["abs_frame"].dropna().astype(int).tolist())
+                                print(f"[EVAL] reference interval frames available: {sorted(ref_frame_values)[:10]}... count={len(ref_frame_values)}")
+                                print(f"[EVAL] predicted interval frames: {sorted(interval_frames)}")
+
+                            track_metrics = compute_track_metrics(ref_tracks, predicted_tracks, interval_frames=interval_frames)
                             save_track_metrics(track_metrics, out_dir / "track_metrics.json")
                             # track_metrics uses 'avg_centroid_deviation' naming
                             reference_metrics["avg_centroid_distance"] = reference_metrics.get("avg_centroid_distance") or track_metrics.get("avg_centroid_deviation")
                             reference_metrics["track_continuity"] = track_metrics.get("track_continuity")
+
+                            try:
+                                from src.benchmark.count_metrics import compute_interval_reference_count
+                                interval_reference_count = compute_interval_reference_count(ref_tracks, int(interval.get("start_frame", 0)), int(interval.get("end_frame", 0)))
+                            except Exception:
+                                interval_reference_count = None
+                            metrics["benchmark_interval_reference_count"] = interval_reference_count
+                            metrics["benchmark_count_error"] = None if interval_reference_count is None else int(metrics.get("droplet_count", 0)) - int(interval_reference_count)
                         except Exception as exc:
                             print(f"[WARN] Reference benchmark evaluation failed for {video_id_name}: {exc}")
 
@@ -458,15 +533,7 @@ def execute_benchmarks(
                     rows[-1]["stage1_runtime"] = metrics.get("stage1_runtime")
                     rows[-1]["stage2_runtime"] = metrics.get("stage2_runtime")
                     rows[-1]["stage3_runtime"] = metrics.get("stage3_runtime") or rows[-1].get("stage3_runtime")
-                    # compute count error against manual_count if available
-                    try:
-                        manual = int(rows[-1].get("manual_count", -1) or -1)
-                        if manual > 0:
-                            rows[-1]["count_error"] = int(rows[-1].get("droplet_count", 0)) - manual
-                        else:
-                            rows[-1]["count_error"] = None
-                    except Exception:
-                        rows[-1]["count_error"] = None
+                    rows[-1]["count_error"] = metrics.get("benchmark_count_error")
                     print(f"[OK] Recorded skip={skip_value}, runtime={rows[-1]['total_runtime']:.2f}s")
                 except Exception as exc:
                     print(f"[ERROR] Failed interval {interval_id_name} with memory_update_skip={skip_value}: {exc}")
@@ -498,7 +565,12 @@ def execute_benchmarks(
         report_json = generate_report(json_path, benchmark_runs_root, benchmark_root, generate_visuals=True, manual_metrics=manual_metrics_path)
         print(f"[Benchmark] Aggregated report written to: {report_json}")
     except Exception as exc:
-        print(f"[WARN] Failed to generate aggregated report: {exc}")
+        raise RuntimeError(f"Failed to generate benchmark report: {exc}") from exc
+
+    first_success_row = next((row for row in rows if row.get("interval_id") and row.get("video_id")), None)
+    if first_success_row is not None:
+        first_run_dir = benchmark_runs_root / str(first_success_row["video_id"]) / str(first_success_row["interval_id"]) / f"skip_{first_success_row.get('memory_update_skip', memory_update_skips[0])}"
+        _validate_benchmark_outputs(output_root, first_run_dir, report_json, dry_run=dry_run)
 
     return {"rows": rows, "summary_csv": csv_path, "summary_json": json_path}
 

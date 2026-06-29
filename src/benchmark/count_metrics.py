@@ -6,6 +6,8 @@ from typing import Any
 
 import pandas as pd
 
+from src.benchmark.ontology import filter_semantic_droplets
+
 
 def _infer_id_column(df: pd.DataFrame) -> str:
     for candidate in ("id", "track_id", "droplet_id", "obj_id", "global_id"):
@@ -21,7 +23,23 @@ def _unique_count(df: pd.DataFrame) -> int:
     return int(df[id_col].nunique())
 
 
-def compute_count_metrics(reference_tracks: pd.DataFrame, predicted_tracks: pd.DataFrame) -> dict[str, Any]:
+def _filter_droplets(df: pd.DataFrame) -> pd.DataFrame:
+    return filter_semantic_droplets(df)
+
+
+def compute_count_metrics(reference_tracks: pd.DataFrame, predicted_tracks: pd.DataFrame, interval_frames: set[int] | None = None) -> dict[str, Any]:
+    reference_tracks = _filter_droplets(reference_tracks)
+    if interval_frames is not None:
+        frame_col = None
+        for candidate in ("abs_frame", "frame_idx", "rel_frame", "frame"):
+            if candidate in reference_tracks.columns:
+                frame_col = candidate
+                break
+        if frame_col is not None:
+            reference_tracks = reference_tracks[reference_tracks[frame_col].isin(interval_frames)].copy()
+    if interval_frames is not None and reference_tracks.empty:
+        reference_tracks = reference_tracks.iloc[0:0].copy()
+    predicted_tracks = _filter_droplets(predicted_tracks)
     reference_count = _unique_count(reference_tracks)
     predicted_count = _unique_count(predicted_tracks)
     count_error = predicted_count - reference_count
@@ -35,6 +53,25 @@ def compute_count_metrics(reference_tracks: pd.DataFrame, predicted_tracks: pd.D
         "absolute_error": int(absolute_error),
         "relative_error": relative_error,
     }
+
+
+def compute_interval_reference_count(reference_tracks: pd.DataFrame, start_frame: int, end_frame: int) -> int | None:
+    if reference_tracks.empty:
+        return None
+    if "class_id" in reference_tracks.columns or "cls_id" in reference_tracks.columns:
+        reference_tracks = filter_semantic_droplets(reference_tracks)
+    frame_col = None
+    for candidate in ("abs_frame", "frame_idx", "rel_frame", "frame"):
+        if candidate in reference_tracks.columns:
+            frame_col = candidate
+            break
+    if frame_col is None:
+        return None
+    interval_rows = reference_tracks[(reference_tracks[frame_col] >= start_frame) & (reference_tracks[frame_col] <= end_frame)]
+    if interval_rows.empty:
+        return None
+    id_col = _infer_id_column(interval_rows)
+    return int(interval_rows[id_col].nunique())
 
 
 def save_count_metrics(metrics: dict[str, Any], output_path: Path) -> Path:

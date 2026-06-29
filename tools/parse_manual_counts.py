@@ -6,10 +6,14 @@ Reports duplicates/conflicts.
 from __future__ import annotations
 
 import json
+import re
 from pathlib import Path
 from typing import Dict, Any
 
 import pandas as pd
+
+
+VIDEO_ID_RE = re.compile(r"^(AIS|ALS)\d{2}T\d+(?:R\d+)?$", re.IGNORECASE)
 
 
 def _find_annotation_files(root: Path) -> list[Path]:
@@ -19,45 +23,82 @@ def _find_annotation_files(root: Path) -> list[Path]:
     return candidates
 
 
+def _normalize_video_id(value: Any) -> str | None:
+    if pd.isna(value):
+        return None
+    text = str(value).strip()
+    if not text:
+        return None
+    text = re.sub(r"\s+", "", text)
+    text = text.replace("_", "")
+    upper = text.upper()
+    if VIDEO_ID_RE.match(upper):
+        return upper
+    return None
+
+
+def _load_table(path: Path) -> pd.DataFrame:
+    if path.suffix.lower() == ".csv":
+        return pd.read_csv(path, header=None)
+    try:
+        return pd.read_excel(path, header=None)
+    except Exception:
+        return pd.DataFrame()
+
+
 def _extract_from_df(df: pd.DataFrame) -> Dict[str, int]:
-    # find candidate columns
-    cols = [c.lower() for c in df.columns.astype(str)]
-    video_cols = [c for c in df.columns if 'video' in str(c).lower()]
-    manual_cols = [c for c in df.columns if 'manual' in str(c).lower() or 'manually' in str(c).lower()]
+    if df.empty:
+        return {}
+
+    video_col_idx = None
+    manual_col_idx = None
+    system_col_idx = None
+
+    for row_idx in range(min(len(df), 20)):
+        row = df.iloc[row_idx]
+        for col_idx, cell in enumerate(row.tolist()):
+            text = str(cell).strip().lower() if not pd.isna(cell) else ""
+            if text == "video id" or text == "video_id":
+                video_col_idx = col_idx
+            elif "manually counted droplet" in text or text == "manual count" or text == "manual_count":
+                manual_col_idx = col_idx
+            elif "system counted droplet" in text or text == "system count" or text == "system_count":
+                system_col_idx = col_idx
+        if video_col_idx is not None and manual_col_idx is not None:
+            break
 
     mapping: Dict[str, set[int]] = {}
 
-    if not video_cols or not manual_cols:
-        # attempt heuristics: last two columns are video id and manual count
-        if df.shape[1] >= 2:
-            video_col = df.columns[-2]
-            manual_col = df.columns[-1]
-        else:
-            return {}
-    else:
-        video_col = video_cols[0]
-        manual_col = manual_cols[0]
+    if video_col_idx is not None and manual_col_idx is not None:
+        for row_idx in range(video_col_idx + 1, len(df)):
+            row = df.iloc[row_idx]
+            video = _normalize_video_id(row.iloc[video_col_idx])
+            manual = row.iloc[manual_col_idx]
+            if video is None or pd.isna(manual):
+                continue
+            try:
+                manual_count = int(float(manual))
+            except Exception:
+                continue
+            mapping.setdefault(video, set()).add(manual_count)
 
-    for _, row in df.iterrows():
-        v = row.get(video_col)
-        m = row.get(manual_col)
-        if pd.isna(v) or pd.isna(m):
-            continue
-        try:
-            v_s = str(v).strip()
-            m_i = int(float(m))
-        except Exception:
-            continue
-        mapping.setdefault(v_s, set()).add(m_i)
+    if not mapping:
+        # fallback: scan every row for the first valid video id and a nearby numeric count
+        for _, row in df.iterrows():
+            values = [cell for cell in row.tolist() if not pd.isna(cell)]
+            video = next((v for v in (_normalize_video_id(cell) for cell in values) if v is not None), None)
+            numeric_values = []
+            for cell in values:
+                try:
+                    numeric_values.append(int(float(cell)))
+                except Exception:
+                    pass
+            if video and numeric_values:
+                mapping.setdefault(video, set()).add(numeric_values[0])
 
-    # resolve sets to single int or mark conflict
     result: Dict[str, int] = {}
-    for v, s in mapping.items():
-        if len(s) == 1:
-            result[v] = next(iter(s))
-        else:
-            # prefer max as a conservative choice but record conflict by using -1 placeholder
-            result[v] = -1
+    for video, counts in mapping.items():
+        result[video] = next(iter(counts)) if len(counts) == 1 else -1
     return result
 
 
@@ -67,10 +108,7 @@ def parse_and_write(root: Path, out_path: Path) -> Dict[str, Any]:
     issues = []
     for f in files:
         try:
-            if f.suffix.lower() == '.csv':
-                df = pd.read_csv(f, dtype=str, keep_default_na=False)
-            else:
-                df = pd.read_excel(f, dtype=str)
+            df = _load_table(f)
         except Exception as exc:
             issues.append(f"Failed to read {f}: {exc}")
             continue

@@ -1,37 +1,28 @@
 {
   "video_manual_counts": {
-    "20": 20,
-    "96": 84,
-    "147": -1,
-    "119": -1,
-    "173": 179,
-    "35": 34,
-    "56": 57,
-    "179": 185,
-    "165": 157,
-    "68": 72,
-    "32": 40,
-    "121": 116,
-    "177": 179,
-    "146": 146,
-    "70": 71,
-    "184": 183,
-    "125": 129,
-    "62": 63,
-    "145": 156,
-    "101": 116,
-    "110": 121,
-    "138": 151,
-    "132": 140
+    "AIS31T02": 173,
+    "AIS26T5": 35,
+    "AIS27T5": 56,
+    "AIS31T04": 179,
+    "AIS29T4": 147,
+    "AIS31T01": 165,
+    "AIS27T1": 68,
+    "AIS26T4R1": 32,
+    "AIS28T1R2": 121,
+    "AIS30T03R01": 177,
+    "AIS29T5": 146,
+    "AIS28T5": 119,
+    "AIS27T6": 70,
+    "AIS30T01R03": 184,
+    "AIS28T3": 125,
+    "AIS27T2R1": 62,
+    "AIS29T3": 145,
+    "AIS28T2": 101,
+    "AIS28T4": 110,
+    "AIS29T1": 138,
+    "AIS29T2": 132
   },
-  "conflicts": {
-    "147": [
-      -1
-    ],
-    "119": [
-      -1
-    ]
-  },
+  "conflicts": {},
   "sources": [
     "C:\\Users\\krish\\Desktop\\etam-memory-bank-gmaw\\Exploratory Data Analysis (EDA)_Data Annotation.csv",
     "C:\\Users\\krish\\Desktop\\etam-memory-bank-gmaw\\Exploratory Data Analysis (EDA)_Data Annotation.xlsx"

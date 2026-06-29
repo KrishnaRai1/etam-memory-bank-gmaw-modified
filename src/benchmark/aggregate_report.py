@@ -164,6 +164,7 @@ def generate_report(summary_json: Path, runs_root: Path, out_root: Path, generat
 
     # create simple HTML report with matplotlib plots
     html_path = out_root / 'benchmark_report.html'
+    generated_assets: list[Path] = []
     with open(html_path, 'w', encoding='utf-8') as fh:
         fh.write('<html><head><title>Benchmark Report</title></head><body>')
         fh.write(f"<h1>Benchmark Report</h1>")
@@ -180,6 +181,7 @@ def generate_report(summary_json: Path, runs_root: Path, out_root: Path, generat
             rp = out_root / 'runtime_box.png'
             plt.savefig(rp, bbox_inches='tight')
             plt.close()
+            generated_assets.append(rp)
             fh.write(f"<h3>Runtime</h3><img src='{rp.name}' alt='runtime'>")
 
         # IoU plot
@@ -191,6 +193,7 @@ def generate_report(summary_json: Path, runs_root: Path, out_root: Path, generat
             rp = out_root / 'iou_box.png'
             plt.savefig(rp, bbox_inches='tight')
             plt.close()
+            generated_assets.append(rp)
             fh.write(f"<h3>IoU</h3><img src='{rp.name}' alt='iou'>")
 
         # Count error plot
@@ -202,9 +205,19 @@ def generate_report(summary_json: Path, runs_root: Path, out_root: Path, generat
             rp = out_root / 'count_box.png'
             plt.savefig(rp, bbox_inches='tight')
             plt.close()
+            generated_assets.append(rp)
             fh.write(f"<h3>Count Error</h3><img src='{rp.name}' alt='count'>")
 
         fh.write('</body></html>')
+
+    if not html_path.exists() or html_path.stat().st_size <= 0:
+        raise RuntimeError(f'Failed to generate benchmark HTML report: {html_path}')
+    html_text = html_path.read_text(encoding='utf-8')
+    if '<html' not in html_text.lower() or '</html>' not in html_text.lower():
+        raise RuntimeError(f'Benchmark HTML report is invalid: {html_path}')
+    for asset in generated_assets:
+        if not asset.exists() or asset.stat().st_size <= 0:
+            raise RuntimeError(f'Benchmark report asset missing or empty: {asset}')
 
     # optional visualizations per run
     if generate_visuals:

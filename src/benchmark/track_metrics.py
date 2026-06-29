@@ -9,6 +9,8 @@ from typing import Any
 import numpy as np
 import pandas as pd
 
+from src.benchmark.ontology import filter_semantic_droplets
+
 
 @dataclass
 class TrackPoint:
@@ -67,7 +69,18 @@ def _compute_continuity(df: pd.DataFrame) -> float:
     return float(np.mean(continuity_scores)) if continuity_scores else 0.0
 
 
-def compute_track_metrics(reference_tracks: pd.DataFrame, predicted_tracks: pd.DataFrame) -> dict[str, Any]:
+def _filter_droplets(df: pd.DataFrame) -> pd.DataFrame:
+    return filter_semantic_droplets(df)
+
+
+def compute_track_metrics(reference_tracks: pd.DataFrame, predicted_tracks: pd.DataFrame, interval_frames: set[int] | None = None) -> dict[str, Any]:
+    reference_tracks = _filter_droplets(reference_tracks)
+    if interval_frames is not None:
+        frame_col = _infer_frame_column(reference_tracks)
+        reference_tracks = reference_tracks[reference_tracks[frame_col].isin(interval_frames)].copy()
+    if interval_frames is not None and reference_tracks.empty:
+        reference_tracks = reference_tracks.iloc[0:0].copy()
+    predicted_tracks = _filter_droplets(predicted_tracks)
     ref_points = _build_points(reference_tracks)
     pred_points = _build_points(predicted_tracks)
     all_distances = []
